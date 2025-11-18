@@ -1,0 +1,2 @@
+class TestBashFormatter:
+    pass

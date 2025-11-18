@@ -1,0 +1,2 @@
+class TestCompleterConfiguration:
+    pass

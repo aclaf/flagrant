@@ -1,0 +1,2 @@
+class TestParserConfiguration:
+    pass
