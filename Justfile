@@ -65,15 +65,35 @@ lint: install
   uv run --frozen yamllint --strict .
   uv run --frozen ruff check .
   uv run --frozen basedpyright
+  uv run --frozen lint-imports
 
 lint-python: install
   uv run --frozen ruff check .
   uv run --frozen ruff format --check .
   uv run --frozen basedpyright
 
+# Lint import dependencies
+lint-imports: install
+  uv run --frozen lint-imports
+
 # Lint GitHub Actions workflows
 lint-actions: install
   actionlint
+
+# Lint documentation
+lint-docs: install
+  uv run --frozen yamllint --strict mkdocs.yml
+  pnpm exec markdownlint-cli2 "**/*.md"
+  uv run --frozen --group docs djlint docs/.overrides
+  pnpm exec biome check docs/
+
+# Run Vale linter
+lint-vale:
+  vale docs/ CONTRIBUTING.md README.md SECURITY.md
+
+# Sync Vale styles and dictionaries
+vale-sync:
+  vale sync
 
 # Run pre-commit hooks
 prek: install
@@ -81,7 +101,42 @@ prek: install
 
 # Clean build artifacts
 clean:
+  rm -rf site/
   rm -rf dist/
+  rm -rf build/
   find . -type d -name __pycache__ -exec rm -rf {} +
   find . -type d -name .pytest_cache -exec rm -rf {} +
   find . -type d -name .ruff_cache -exec rm -rf {} +
+
+# Build the latest documentation
+build-docs: clean
+  FLAGRANT_DOCS_ENV=latest uv run --group docs mkdocs build
+  uv pip freeze > requirements.txt
+
+# Build the documentation for PR preview
+[script]
+build-docs-pr number: clean
+  rm -f mkdocs.pr.yml
+  cat << EOF >> mkdocs.pr.yml
+  INHERIT: ./mkdocs.yml
+  site_name: Flagrant Documentation (PR-{{number}})
+  site_url: https://{{number}}-flagrant-docs-pr.tbhb.workers.dev/
+  EOF
+  uv run --group docs mkdocs build
+  echo "User-Agent: *\nDisallow: /" > site/robots.txt
+  uv pip freeze > requirements.txt
+
+# Deploy latest documentation
+deploy-docs: build-docs
+  pnpm exec wrangler deploy --env latest
+
+# Deploy documentation preview
+deploy-docs-pr number: (build-docs-pr number)
+  pnpm exec wrangler versions upload --env pr --preview-alias pr-{{number}}
+
+# Develop the documentation site locally
+dev-docs:
+  uv run --group docs mkdocs serve --livereload --dev-addr 127.0.0.1:8001
+
+mermaid *args:
+  pnpm exec mmdc {{args}}

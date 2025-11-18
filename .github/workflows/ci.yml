@@ -16,18 +16,6 @@ permissions:
   contents: read
 
 jobs:
-  lint-actions:
-    name: Lint GitHub Actions
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-
-      - name: Lint GitHub Actions workflows
-        uses: reviewdog/action-actionlint@f00ad0691526c10be4021a91b2510f0a769b14d0 # v1.6.8
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -51,6 +39,9 @@ jobs:
 
       - name: Run linters
         run: just lint
+
+      - name: Lint GitHub Actions workflows
+        uses: reviewdog/action-actionlint@f00ad0691526c10be4021a91b2510f0a769b14d0 # v1.6.8
 
   build:
     name: "Build"
