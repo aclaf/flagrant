@@ -39,3 +39,28 @@ benchmark_results.json
 # Mise/direnv
 .envrc
 mise.local.toml
+
+# Vale styles (downloaded packages, but keep our custom vocabularies)
+.vale/*
+!.vale/config/
+.vale/config/*
+!.vale/config/vocabularies/
+.vale/config/vocabularies/*
+!.vale/config/vocabularies/Aclaf/
+
+# Other directories
+node_modules/
+plans/
+reviews/
+specs/
+temp/
+tmp/
+
+# import-linter
+.import_linter_cache/
+tests/tmp
+
+# MkDocs
+site/
+mkdocs.pr.yml
+requirements.txt

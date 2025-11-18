@@ -1,39 +1,40 @@
 """Exceptions raised by Flagrant."""
 
+from pathlib import Path
+
+ErrorContextValue = (
+    str
+    | int
+    | float
+    | bool
+    | None
+    | Path
+    | list["ErrorContextValue"]
+    | dict[str, "ErrorContextValue"]
+)
+ErrorContext = dict[str, ErrorContextValue]
+
 __all__ = [
-    "CompletionConfigurationError",
-    "CompletionError",
     "ConfigurationError",
+    "ErrorContext",
+    "ErrorContextValue",
     "FlagrantError",
-    "ParseError",
-    "ParserConfigurationError",
-    "SpecificationError",
 ]
 
 
 class FlagrantError(Exception):
-    """Base class for all Flagrant-related errors."""
+    """Base class for all errors raised by the Flagrant library."""
+
+    def __init__(self, message: str, context: ErrorContext | None = None):
+        """Initialize a FlagrantError.
+
+        Args:
+            message: The error message.
+            context: Optional context providing additional information about the error.
+        """
+        super().__init__(message)
+        self.context: ErrorContext = context or {}
 
 
 class ConfigurationError(FlagrantError):
-    """Raised when there is an error in configuration settings."""
-
-
-class CompletionConfigurationError(ConfigurationError):
-    """Raised when there is an error in the completion configuration."""
-
-
-class ParserConfigurationError(ConfigurationError):
-    """Raised when there is an error in the parser configuration."""
-
-
-class SpecificationError(FlagrantError):
-    """Raised when there is an error in a command or parameter specification."""
-
-
-class CompletionError(FlagrantError):
-    """Base class for all completion-related errors."""
-
-
-class ParseError(FlagrantError):
-    """Base class for all parsing-related errors."""
+    """Base class for errors related to invalid configuration."""
