@@ -6,7 +6,7 @@ build-backend = "uv_build"
 name = "flagrant"
 version = "0.1.0"
 authors = [{ name = "Tony Burns", email = "tony@tonyburns.net" }]
-description = "Specification-driven parsing and completion for command-line arguments, options, and subcommands."
+description = "Command-line argument, option, and subcommand parsing."
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
@@ -43,22 +43,32 @@ dev = [
   "ruff>=0.14.3",
   "yamllint>=1.37.1",
 ]
-benchmarking = [
-  "pytest-benchmark>=5.2.2",
-]
-fuzzing = [
-  "atheris>=2.3.0; python_version < '3.12'",
-]
-mutation = [
-  "mutmut>=3.3.1; python_version < '3.14'",
-]
-profiling = [
-  "memray>=1.19.1",
-  "py-spy>=0.4.1",
+benchmarking = ["pytest-benchmark>=5.2.2"]
+fuzzing = ["atheris>=2.3.0; python_version < '3.12'"]
+mutation = ["mutmut>=3.3.1; python_version < '3.14'"]
+profiling = ["memray>=1.19.1", "py-spy>=0.4.1"]
+docs = [
+  "djlint>=1.36.4",
+  "mkdocs-git-authors-plugin>=0.10.0",
+  "mkdocs-git-revision-date-localized-plugin>=1.5.0",
+  "mkdocs-glightbox>=0.5.2",
+  "mkdocs-material>=9.7.0",
+  "mkdocs-rss-plugin>=1.17.7",
+  "mkdocstrings[python]>=0.30.1",
 ]
 
 [tool.basedpyright]
+exclude = [
+  "**/node_modules",
+  "**/temp",
+  "**/tmp",
+  "**/plans",
+  "**/reviews",
+  "**/specs",
+]
 include = ["src", "tests"]
+pythonVersion = "3.10"
+reportImportCycles = "error"
 
 [tool.codespell]
 skip = "uv.lock,htmlcov,tmp"
@@ -88,8 +98,6 @@ markers = [
   "integration: mark a test as an integration test.",
   "properties: mark a test as a properties test.",
   "unit: mark a test as a unit test.",
-  "parsing: mark a test as a parsing-related test.",
-  "completions: mark a test as a completions-related test.",
 ]
 
 [tool.coverage.run]
@@ -130,6 +138,15 @@ tests_dir = "tests"
 runner = "pytest"
 
 [tool.ruff]
+extend-exclude = [
+  "**/node_modules/**",
+  "**/temp/**",
+  "**/tmp/**",
+  "**/plans/**",
+  "**/reviews/**",
+  "**/specs/**",
+]
+force-exclude = true
 target-version = "py310"
 
 [tool.ruff.format]
