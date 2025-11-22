@@ -55,3 +55,6 @@ reviews/
 specs/
 temp/
 tmp/
+
+# import-linter
+.import_linter_cache/

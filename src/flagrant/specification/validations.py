@@ -10,17 +10,18 @@ from flagrant.constraints import (
     PARAMETER_NAME_PATTERN,
     SHORT_NAME_PATTERN,
 )
-from flagrant.enums import ValueAccumulationMode
-from flagrant.exceptions import (
+
+from .enums import ValueAccumulationMode
+from .exceptions import (
     CommandSpecificationError,
     OptionSpecificationError,
 )
-from flagrant.helpers import find_conflicts, find_duplicates, negative_prefix_names
+from .helpers import find_conflicts, find_duplicates, negative_prefix_names
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-    from flagrant._arity import Arity
+    from ._arity import Arity
 
 
 def validate_command_alias(command_name: str, alias: str) -> None:

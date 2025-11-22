@@ -1,21 +1,8 @@
 """Types for command-line argument parsing and completion."""
 
 from collections.abc import Sequence
-from pathlib import Path
 from typing import Annotated, Literal, TypedDict
 from typing_extensions import Doc
-
-ErrorContextValue = (
-    str
-    | int
-    | float
-    | bool
-    | None
-    | Path
-    | list["ErrorContextValue"]
-    | dict[str, "ErrorContextValue"]
-)
-ErrorContext = dict[str, ErrorContextValue]
 
 CommandName = str
 FrozenCommandNames = tuple[CommandName, ...]

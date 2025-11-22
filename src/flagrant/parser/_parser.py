@@ -4,15 +4,24 @@ from itertools import islice
 from typing import TYPE_CHECKING, cast
 from typing_extensions import override
 
-from flagrant._configuration import ParserConfiguration
-from flagrant._result import ParseResult
-from flagrant.enums import (
+from flagrant.configuration import ParserConfiguration
+from flagrant.enums import UngroupedPositionalStrategy
+from flagrant.specification import (
     DictAccumulationMode,
+    DictOptionSpecification,
     FlagAccumulationMode,
-    UngroupedPositionalStrategy,
+    FlagOptionSpecification,
+    OptionResult,
+    OptionSpecification,
+    OptionSpecificationType,
     ValueAccumulationMode,
+    ValueOptionSpecification,
+    is_flag_option,
+    is_value_option,
 )
-from flagrant.exceptions import (
+
+from ._result import ParseResult
+from .exceptions import (
     AmbiguousOptionError,
     OptionMissingValueError,
     OptionNotRepeatableError,
@@ -22,16 +31,6 @@ from flagrant.exceptions import (
     UnknownOptionError,
     UnknownSubcommandError,
 )
-from flagrant.specification import (
-    DictOptionSpecification,
-    FlagOptionSpecification,
-    OptionSpecification,
-    OptionSpecificationType,
-    ValueOptionSpecification,
-    is_flag_option,
-)
-from flagrant.specification._command import OptionResult
-from flagrant.specification._options import is_value_option
 
 if TYPE_CHECKING:
     from flagrant.specification import (
@@ -105,7 +104,7 @@ class _OptionParseContext:
         )
 
 
-def parse_arguments(
+def parse_command_line_args(
     spec: "CommandSpecification",
     args: "Args | None" = None,
     config: "ParserConfiguration | None" = None,

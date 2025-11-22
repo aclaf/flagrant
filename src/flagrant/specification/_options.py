@@ -3,24 +3,25 @@ from functools import cached_property
 from typing import TYPE_CHECKING
 from typing_extensions import TypeIs, override
 
-from flagrant._arity import Arity
 from flagrant.defaults import (
     DEFAULT_CONVERT_UNDERSCORES,
 )
-from flagrant.enums import (
+
+from ._arity import Arity
+from .enums import (
     DictAccumulationMode,
     DictMergeStrategy,
     FlagAccumulationMode,
     ValueAccumulationMode,
 )
-from flagrant.helpers import (
+from .helpers import (
     all_long_option_names,
     all_negative_long_option_names,
     all_negative_names,
     all_option_names,
     negative_prefix_names,
 )
-from flagrant.validations import (
+from .validations import (
     validate_long_option_names,
     validate_negative_long_option_names,
     validate_negative_prefixes,

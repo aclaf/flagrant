@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from pathlib import Path
     from re import Pattern
 
-    from flagrant.enums import DictMergeStrategy
+    from flagrant.specification.enums import DictMergeStrategy
 
 
 @dataclass(slots=True, frozen=True)
@@ -160,6 +160,7 @@ class ParserConfiguration:
     value_item_separator: str = DEFAULT_VALUE_ITEM_DELIMITER
 
     def __post_init__(self) -> None:
+        """Validate configuration settings."""
         if self.key_value_separator == self.dict_item_separator:
             msg = "key_value_separator and dict_item_separator cannot be the same."
             raise ConfigurationError(msg)

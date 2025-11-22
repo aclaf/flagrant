@@ -1,14 +1,15 @@
 """Specification-driven parsing and completion for command-line arguments, options, and subcommands."""  # noqa: E501
 
-from ._arity import Arity
-from ._configuration import ParserConfiguration
-from ._parser import parse_arguments
-from ._result import ParseResult
+from .configuration import ParserConfiguration
+from .parser import ParseResult, parse_command_line_args
 from .specification import (
     CommandSpecification,
+    DictAccumulationMode,
+    DictMergeStrategy,
     DictOptionSpecification,
+    FlagAccumulationMode,
     FlagOptionSpecification,
-    OptionSpecification,
+    ValueAccumulationMode,
     ValueOptionSpecification,
 )
 
@@ -20,13 +21,15 @@ except Exception:  # noqa: BLE001
     __version__ = "unknown"
 
 __all__ = [
-    "Arity",
     "CommandSpecification",
+    "DictAccumulationMode",
+    "DictMergeStrategy",
     "DictOptionSpecification",
+    "FlagAccumulationMode",
     "FlagOptionSpecification",
-    "OptionSpecification",
     "ParseResult",
     "ParserConfiguration",
+    "ValueAccumulationMode",
     "ValueOptionSpecification",
-    "parse_arguments",
+    "parse_command_line_args",
 ]

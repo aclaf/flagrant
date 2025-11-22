@@ -3,7 +3,8 @@
 import re
 from typing import Final
 
-from flagrant.enums import DictMergeStrategy, UngroupedPositionalStrategy
+from flagrant.enums import UngroupedPositionalStrategy
+from flagrant.specification.enums import DictMergeStrategy
 
 DEFAULT_ARGUMENT_FILE_COMMENT_CHARACTER: Final[str] = "#"
 

@@ -65,11 +65,16 @@ lint: install
   uv run --frozen yamllint --strict .
   uv run --frozen ruff check .
   uv run --frozen basedpyright
+  uv run --frozen lint-imports
 
 lint-python: install
   uv run --frozen ruff check .
   uv run --frozen ruff format --check .
   uv run --frozen basedpyright
+
+# Lint import dependencies
+lint-imports: install
+  uv run --frozen lint-imports
 
 # Lint GitHub Actions workflows
 lint-actions: install

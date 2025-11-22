@@ -36,6 +36,7 @@ dev = [
   "codespell>=2.4.1",
   "commitizen>=4.9.1",
   "hypothesis>=6.147.0",
+  "import-linter>=2.6",
   "prek>=0.2.12",
   "pytest-cov>=7.0.0",
   "pytest-mock>=3.15.1",
@@ -65,13 +66,15 @@ exclude = [
   "**/plans",
   "**/reviews",
   "**/specs",
+  "tests/unit/parser/test_parser.py",
 ]
 include = ["src", "tests"]
 pythonVersion = "3.10"
 reportImportCycles = "error"
 
 [tool.codespell]
-skip = "uv.lock,htmlcov,tmp"
+skip = "uv.lock,htmlcov,tmp,pnpm-lock.yaml,docs,reviews"
+ignore-words-list = "devlop"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
@@ -136,6 +139,164 @@ max_examples = 100
 paths_to_mutate = ["src/flagrant"]
 tests_dir = "tests"
 runner = "pytest"
+
+[tool.importlinter]
+root_package = "flagrant"
+
+# Architectural layer contracts
+# ==============================
+# These contracts enforce the architectural boundaries between different layers
+# of the flagrant package. The architecture follows a clean separation between
+# foundation types, specifications, and parsing implementation.
+#
+# Package structure (from lowest to highest dependency):
+#   0. Foundation: types, enums, constraints, exceptions (zero internal deps)
+#   1. Configuration primitives: defaults, configuration
+#   2. Specification: specification.* (defines command/option specs)
+#   3. Parser: parser.* (implements parsing based on specs)
+#
+# Key principles:
+# - Foundation modules have zero internal dependencies
+# - Specifications are declarative and isolated from parser implementation
+# - Parser depends on specifications, never the reverse
+# - Each package's exceptions inherit from root exceptions
+
+[[tool.importlinter.contracts]]
+name = "Foundation layer must be independent"
+type = "independence"
+modules = [
+  "flagrant.types",
+  "flagrant.enums",
+  "flagrant.constraints",
+  "flagrant.exceptions",
+]
+# These foundation modules provide types, enums, patterns, and base exceptions.
+# They must remain completely independent with zero internal dependencies to
+# serve as the stable foundation for all other modules.
+
+[[tool.importlinter.contracts]]
+name = "Specification package must not import from parser"
+type = "forbidden"
+source_modules = ["flagrant.specification"]
+forbidden_modules = [
+  "flagrant.parser",
+  "flagrant.configuration",
+]
+# Specifications are declarative definitions of commands and options. They must
+# not depend on parser implementation or configuration to maintain clean separation
+# between "what to parse" (specification) and "how to parse" (parser).
+
+[[tool.importlinter.contracts]]
+name = "Parser depends on specification, not vice versa"
+type = "forbidden"
+source_modules = ["flagrant.specification"]
+forbidden_modules = ["flagrant.parser"]
+# Parser imports from specification to know what to parse, but specifications
+# must never import from parser. This ensures one-way dependency flow.
+
+[[tool.importlinter.contracts]]
+name = "Configuration layer boundaries"
+type = "forbidden"
+source_modules = ["flagrant.configuration"]
+forbidden_modules = [
+  "flagrant.parser",
+  "flagrant.specification._arity",
+  "flagrant.specification._command",
+  "flagrant.specification._options",
+  "flagrant.specification.helpers",
+  "flagrant.specification.validations",
+  "flagrant.specification.exceptions",
+]
+# Configuration can import from foundation (defaults, enums, exceptions) and
+# specification enums for type hints, but should not depend on specification
+# internals or parser implementation.
+
+[[tool.importlinter.contracts]]
+name = "Defaults can only import from foundation and specification enums"
+type = "forbidden"
+source_modules = ["flagrant.defaults"]
+forbidden_modules = [
+  "flagrant.configuration",
+  "flagrant.parser",
+  "flagrant.specification._arity",
+  "flagrant.specification._command",
+  "flagrant.specification._options",
+  "flagrant.specification.helpers",
+  "flagrant.specification.validations",
+  "flagrant.specification.exceptions",
+]
+# Defaults provides default values for configuration. It can import foundation
+# modules and specification enums, but should not depend on higher layers.
+
+[[tool.importlinter.contracts]]
+name = "Specification enums and arity are foundational"
+type = "forbidden"
+source_modules = [
+  "flagrant.specification.enums",
+  "flagrant.specification._arity",
+]
+forbidden_modules = [
+  "flagrant.specification.exceptions",
+  "flagrant.specification.helpers",
+  "flagrant.specification.validations",
+  "flagrant.specification._options",
+  "flagrant.specification._command",
+]
+# Enums and arity are foundational types that should not depend on other
+# specification modules.
+
+[[tool.importlinter.contracts]]
+name = "Specification helpers and exceptions layer"
+type = "forbidden"
+source_modules = [
+  "flagrant.specification.helpers",
+  "flagrant.specification.exceptions",
+]
+forbidden_modules = [
+  "flagrant.specification.validations",
+  "flagrant.specification._options",
+  "flagrant.specification._command",
+]
+# Helpers and exceptions are utilities that validations, options, and commands use.
+
+[[tool.importlinter.contracts]]
+name = "Specification validations layer"
+type = "forbidden"
+source_modules = ["flagrant.specification.validations"]
+forbidden_modules = [
+  "flagrant.specification._options",
+  "flagrant.specification._command",
+]
+# Validations are used by options and commands, not vice versa.
+
+[[tool.importlinter.contracts]]
+name = "Specification options layer"
+type = "forbidden"
+source_modules = ["flagrant.specification._options"]
+forbidden_modules = ["flagrant.specification._command"]
+# Options are used by commands, commands don't import options internals.
+
+[[tool.importlinter.contracts]]
+name = "Parser internal structure"
+type = "forbidden"
+source_modules = ["flagrant.parser._result", "flagrant.parser.exceptions"]
+forbidden_modules = ["flagrant.parser._parser"]
+# Parse result and exceptions are independent types that don't depend on the
+# parser implementation. Only the parser implementation imports from them.
+
+[[tool.importlinter.contracts]]
+name = "Exception hierarchy enforcement"
+type = "forbidden"
+source_modules = ["flagrant.exceptions"]
+forbidden_modules = [
+  "flagrant.specification",
+  "flagrant.parser",
+  "flagrant.configuration",
+  "flagrant.defaults",
+]
+# Base exceptions must not import from any other flagrant modules. Package-specific
+# exceptions (specification.exceptions, parser.exceptions) inherit from base
+# exceptions, never the reverse.
 
 [tool.ruff]
 extend-exclude = [

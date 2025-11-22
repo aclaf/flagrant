@@ -3,19 +3,17 @@ from functools import cached_property
 from types import MappingProxyType
 from typing import TYPE_CHECKING, NamedTuple
 
-from flagrant.validations import (
+from ._options import FlagOptionSpecification
+from .validations import (
     validate_command_aliases,
     validate_command_positionals,
     validate_parameter_names,
     validate_subcommand_names,
 )
 
-from ._options import FlagOptionSpecification
-
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
-    from flagrant._arity import Arity
     from flagrant.types import (
         FrozenCommandNames,
         FrozenCommandNameSet,
@@ -24,6 +22,7 @@ if TYPE_CHECKING:
         OptionName,
     )
 
+    from ._arity import Arity
     from ._options import (
         OptionSpecificationType,
     )
