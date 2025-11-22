@@ -3,9 +3,6 @@
 import re
 from typing import Final
 
-from flagrant.enums import UngroupedPositionalStrategy
-from flagrant.specification.enums import DictMergeStrategy
-
 DEFAULT_ARGUMENT_FILE_COMMENT_CHARACTER: Final[str] = "#"
 
 DEFAULT_ARGUMENT_FILE_PREFIX: Final[str] = "@"
@@ -22,8 +19,6 @@ DEFAULT_LONG_NAME_PREFIX: Final[str] = "--"
 
 DEFAULT_MAX_ARGUMENT_FILE_DEPTH: Final[int] = 5
 
-DEFAULT_MERGE_STRATEGY: Final[DictMergeStrategy] = DictMergeStrategy.DEEP
-
 DEFAULT_MINIMUM_ABBREVIATION_LENGTH: Final[int] = 3
 
 DEFAULT_NEGATIVE_NUMBER_PATTERN: Final[re.Pattern[str]] = re.compile(
@@ -37,10 +32,6 @@ DEFAULT_OPTION_VALUE_SEPARATOR: Final[str] = "="
 DEFAULT_SHORT_NAME_PREFIX: Final[str] = "-"
 
 DEFAULT_TRAILING_ARGUMENTS_SEPARATOR: Final[str] = "--"
-
-DEFAULT_UNGROUPED_POSITIONAL_STRATEGY: Final["UngroupedPositionalStrategy"] = (
-    UngroupedPositionalStrategy.IGNORE
-)
 
 DEFAULT_VALUE_ESCAPE_CHARACTER: Final[str] = "\\"
 

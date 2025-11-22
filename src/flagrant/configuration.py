@@ -11,19 +11,22 @@ from flagrant.defaults import (
     DEFAULT_KEY_VALUE_SEPARATOR,
     DEFAULT_LONG_NAME_PREFIX,
     DEFAULT_MAX_ARGUMENT_FILE_DEPTH,
-    DEFAULT_MERGE_STRATEGY,
     DEFAULT_MINIMUM_ABBREVIATION_LENGTH,
     DEFAULT_NEGATIVE_NUMBER_PATTERN,
     DEFAULT_NESTING_SEPARATOR,
     DEFAULT_OPTION_VALUE_SEPARATOR,
     DEFAULT_SHORT_NAME_PREFIX,
     DEFAULT_TRAILING_ARGUMENTS_SEPARATOR,
-    DEFAULT_UNGROUPED_POSITIONAL_STRATEGY,
     DEFAULT_VALUE_ESCAPE_CHARACTER,
     DEFAULT_VALUE_ITEM_DELIMITER,
 )
-from flagrant.enums import ArgumentFileFormat, UngroupedPositionalStrategy
+from flagrant.enums import (
+    DEFAULT_UNGROUPED_POSITIONAL_STRATEGY,
+    ArgumentFileFormat,
+    UngroupedPositionalStrategy,
+)
 from flagrant.exceptions import ConfigurationError
+from flagrant.specification.enums import DEFAULT_MERGE_STRATEGY
 
 if TYPE_CHECKING:
     from pathlib import Path

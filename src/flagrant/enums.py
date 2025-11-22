@@ -27,3 +27,8 @@ class UngroupedPositionalStrategy(str, Enum):
     Raises a [PositionalUnexpectedValueError][flagrant.exceptions.PositionalUnexpectedValueError]
     if ungrouped positional arguments are encountered.
     """  # noqa: E501
+
+
+DEFAULT_UNGROUPED_POSITIONAL_STRATEGY: "UngroupedPositionalStrategy" = (
+    UngroupedPositionalStrategy.IGNORE
+)

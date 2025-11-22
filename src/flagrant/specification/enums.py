@@ -92,3 +92,6 @@ class DictMergeStrategy(str, Enum):
     """
     A deep merge where nested dictionaries are merged recursively. (Default)
     """
+
+
+DEFAULT_MERGE_STRATEGY: "DictMergeStrategy" = DictMergeStrategy.DEEP
