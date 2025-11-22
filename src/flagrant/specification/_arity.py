@@ -90,6 +90,16 @@ class Arity(NamedTuple):
         return f"Arity(min={self.min!r}, max={self.max!r})"
 
     @property
+    def accepts_at_least_one_value(self) -> bool:
+        """Check if this arity accepts at least one value.
+
+        Returns:
+            True if the arity's maximum is None (unbounded) or greater than 0,
+            False otherwise.
+        """
+        return self.max is None or self.max > 0
+
+    @property
     def accepts_at_most_one_value(self) -> bool:
         """Check if this arity accepts at most one value.
 

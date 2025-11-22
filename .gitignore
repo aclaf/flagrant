@@ -58,3 +58,4 @@ tmp/
 
 # import-linter
 .import_linter_cache/
+tests/tmp

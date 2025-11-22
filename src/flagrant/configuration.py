@@ -172,18 +172,8 @@ class ParserConfiguration:
             msg = "key_value_separator and nesting_separator cannot be the same."
             raise ConfigurationError(msg)
 
-        if self.key_value_separator == self.option_value_separator:
-            msg = "key_value_separator and option_value_separator cannot be the same."
-            raise ConfigurationError(msg)
-
         if self.long_name_prefix == self.short_name_prefix:
             msg = "long_name_prefix and short_name_prefix cannot be the same."
-            raise ConfigurationError(msg)
-
-        if self.long_name_prefix == self.trailing_arguments_separator:
-            msg = (
-                "long_name_prefix and trailing_arguments_separator cannot be the same."
-            )
             raise ConfigurationError(msg)
 
         if self.max_argument_file_depth < 1:

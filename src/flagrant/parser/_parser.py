@@ -91,6 +91,7 @@ class _OptionParseContext:
     matched_name: "OptionName"
     spec: "OptionSpecificationType"
     inline_value: "str | None"
+    bundled: bool = False
 
     @override
     def __repr__(self) -> str:
@@ -132,7 +133,7 @@ def parse_command_line_args(
         UnknownOptionError: If an unknown option is encountered.
         UnknownSubcommandError: If an unknown subcommand is encountered.
     """
-    args = args or sys.argv[1:]
+    args = sys.argv[1:] if args is None else args
     return _parse_argument_list(
         _ParseContext(
             config=config or ParserConfiguration(),
@@ -171,6 +172,12 @@ def _parse_argument_list(ctx: _ParseContext) -> ParseResult:
         # Long option
         elif arg.startswith(ctx.config.long_name_prefix):
             ctx.position += _parse_long_option(ctx)
+        # Negative number positional
+        elif _is_negative_number_positional(ctx, arg) or _is_short_name_prefix_only(
+            ctx, arg
+        ):
+            _collect_positional(ctx, arg)
+            ctx.position += 1
         # Short option(s)
         elif arg.startswith(ctx.config.short_name_prefix):
             ctx.position += _parse_short_options(ctx)
@@ -229,6 +236,16 @@ def _parse_long_option(ctx: _ParseContext) -> int:
     )
 
 
+def _is_negative_number_positional(ctx: _ParseContext, arg: str) -> bool:
+    if not ctx.config.allow_negative_numbers:
+        return False
+    return ctx.config.negative_number_pattern.match(arg) is not None
+
+
+def _is_short_name_prefix_only(ctx: _ParseContext, arg: str) -> bool:
+    return arg == ctx.config.short_name_prefix
+
+
 def _parse_short_options(ctx: _ParseContext) -> int:
     chars, inline_value = _split_option_arg(
         ctx, ctx.args[ctx.position], ctx.config.short_name_prefix
@@ -241,8 +258,8 @@ def _parse_short_options(ctx: _ParseContext) -> int:
 
 def _resolve_short_option_chars(
     ctx: _ParseContext, chars: str, inline_value: str | None
-) -> tuple[dict["OptionName", "OptionSpecificationType"], "InlineValue | None"]:
-    options: dict[OptionName, OptionSpecificationType] = {}
+) -> tuple[list[tuple["OptionName", "OptionSpecificationType"]], "InlineValue | None"]:
+    options: list[tuple[OptionName, OptionSpecificationType]] = []  # ✅ Changed to list
     for index, char in enumerate(chars):
         result = _resolve_option(ctx, char)
         if result is None and index == 0:
@@ -251,18 +268,18 @@ def _resolve_short_option_chars(
             inline_value = _concat_inline_value(ctx, inline_value, chars[index:])
             break
         matched_name, option_spec = result
-        options[matched_name] = option_spec
+        options.append((matched_name, option_spec))
     return options, inline_value
 
 
 def _parse_resolved_short_options(
     ctx: _ParseContext,
-    options: dict["OptionName", "OptionSpecificationType"],
+    options: list[tuple["OptionName", "OptionSpecificationType"]],
     inline_value: str | None,
 ) -> "Consumed":
-    last_option_name, last_option = options.popitem()
+    last_option_name, last_option = options.pop()
 
-    for char, inner_option in options.items():
+    for char, inner_option in options:
         consumed = _parse_option(
             ctx,
             _OptionParseContext(
@@ -270,6 +287,7 @@ def _parse_resolved_short_options(
                 matched_name=inner_option.name,
                 spec=inner_option,
                 inline_value=None,
+                bundled=True,
             ),
         )
         if consumed != 0:
@@ -313,7 +331,7 @@ def _parse_flag_option(
 
     return not cast("FlagOptionSpecification", option.spec).is_negative(
         option.provided_name, case_sensitive=ctx.config.case_sensitive_options
-    ), 1
+    ), 0 if option.bundled else 1
 
 
 def _parse_non_flag_option(
@@ -324,21 +342,25 @@ def _parse_non_flag_option(
 
     raw, extra_consumed = _collect_values(ctx, option)
 
+    if len(raw) < option_spec.arity.min:
+        raise _option_missing_value_error(ctx, option, raw)
+
     if (
         is_value_option(option_spec)
         and len(raw) == 1
         and option_spec.accepts_at_most_one_value
     ):
         value = cast("OptionValue", raw[0])
-    elif is_value_option(option_spec) and option_spec.accepts_multiple_values:
-        value = tuple(
-            _split_escaped(
-                item,
-                option_spec.item_separator or ctx.config.value_item_separator,
-                option_spec.escape_character or ctx.config.value_escape_character,
-            )
-            for item in raw
-        )
+    # TODO(tbhb): Rethink expected behavior and configuration for this:
+    # elif is_value_option(option_spec) and option_spec.accepts_multiple_values:
+    #     value = tuple(
+    #         _split_escaped(
+    #             item,
+    #             option_spec.item_separator or ctx.config.value_item_separator,
+    #             option_spec.escape_character or ctx.config.value_escape_character,
+    #         )
+    #         for item in raw
+    #     )
     else:
         value = raw
 
@@ -399,11 +421,23 @@ def _collect_values(
                 break
             collected.append(possible_value)
         consumed = len(collected) - inline_consumed
+    elif option_spec.arity.max is not None and option_spec.arity.max > 0:
+        max_values = option_spec.arity.max - len(collected)
+        for possible_value in islice(
+            ctx.args, next_position, next_position + max_values
+        ):
+            if _is_negative_number(ctx, possible_value, option_spec):
+                collected.append(possible_value)
+                continue
+            if _is_option_or_subcommand(ctx, possible_value):
+                break
+            collected.append(possible_value)
+        consumed = len(collected) - inline_consumed
 
     return tuple(collected), consumed
 
 
-def _accumulate_option(
+def _accumulate_option(  # noqa: PLR0912 TODO(tbhb): Maybe refactor
     ctx: _ParseContext,
     option: _OptionParseContext,
     value: "OptionValue",
@@ -418,8 +452,11 @@ def _accumulate_option(
             DictAccumulationMode.FIRST
             | ValueAccumulationMode.FIRST
             | FlagAccumulationMode.FIRST
-        ) if option_spec.name in options:
-            accumulated_value = options[option_spec.name]
+        ):
+            if option_spec.name in options:
+                accumulated_value = options[option_spec.name]
+            else:
+                accumulated_value = value
         # --option value1 --option value2
         # -> value2
         case _, (
@@ -434,8 +471,10 @@ def _accumulate_option(
             DictAccumulationMode.ERROR
             | ValueAccumulationMode.ERROR
             | FlagAccumulationMode.ERROR
-        ) if option_spec.name in options:
-            raise _option_not_repeatable_error(ctx, option, value)
+        ):
+            if option_spec.name in options:
+                raise _option_not_repeatable_error(ctx, option, value)
+            accumulated_value = value
 
         # --flag --flag --flag
         # -> 3
@@ -457,7 +496,7 @@ def _accumulate_option(
                 "tuple[tuple[str, ...], ...]", options.get(option_spec.name, ())
             )
             accumulated_value = cast(
-                "OptionValue", (*previous, *(cast("tuple[str, ...]", value)))
+                "OptionValue", (*previous, (cast("tuple[str, ...]", value)))
             )
         # --option value1 value2 --option value3 value4
         # -> (value1, value2, value3, value4)
@@ -575,11 +614,11 @@ def _group_positionals(
         )
 
         to_consume = 0
-        if arity.accepts_unbounded_values:
+        if arity.max is None:
             to_consume = max(0, remaining_positionals - subsequent_min)
-        elif arity.max is not None:
+        else:
             # Bounded arity
-            available = max(0, len(ungrouped_positionals) - subsequent_min)
+            available = max(0, remaining_positionals - subsequent_min)
             to_consume = min(arity.max, available)
 
         consumed_values = islice(
@@ -595,11 +634,7 @@ def _group_positionals(
             else tuple(consumed_values)
         )
 
-    if (
-        remaining_positionals
-        and ctx.config.strict_posix_options
-        and ungrouped_index < len(ungrouped_positionals)
-    ):
+    if remaining_positionals and ungrouped_index < len(ungrouped_positionals):
         grouped_positionals.update(
             _handle_ungrouped_positionals(
                 ctx,
@@ -746,6 +781,21 @@ def _resolve_subcommand(
     return None
 
 
+def _option_missing_value_error(
+    ctx: _ParseContext,
+    option: _OptionParseContext,
+    provided_values: tuple[str, ...],
+) -> OptionMissingValueError:
+    return OptionMissingValueError(
+        option.provided_name,
+        option.spec.arity,
+        provided_values if provided_values else None,
+        path=ctx.path,
+        args=ctx.args,
+        position=ctx.position,
+    )
+
+
 def _option_not_repeatable_error(
     ctx: _ParseContext,
     option: _OptionParseContext,
@@ -772,7 +822,7 @@ def _unknown_subcommand_error(ctx: _ParseContext, arg: str) -> UnknownSubcommand
     )
 
 
-def _split_escaped(value: str, delimiter: str, escape: str) -> tuple[str, ...]:
+def _split_escaped(value: str, delimiter: str, escape: str) -> tuple[str, ...]:  # pyright: ignore[reportUnusedFunction]
     if len(delimiter) != 1:
         msg = "Delimiter must be a single character."
         raise ValueError(msg)
