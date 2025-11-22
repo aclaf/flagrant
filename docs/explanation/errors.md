@@ -11,13 +11,13 @@ All errors provide structured context that enables higher-level frameworks to fo
 - [Error hierarchy](#error-hierarchy)
 - [Base exceptions](#base-exceptions)
   - [FlagrantError](#flagranterror)
-  - [Configuration errors](#configuration-errors)
+  - [ConfigurationError](#configurationerror)
 - [Specification errors](#specification-errors)
-  - [Base specification errors](#base-specification-errors)
-  - [Option specification errors](#option-specification-errors)
-  - [Command specification errors](#command-specification-errors)
+  - [SpecificationError](#specificationerror)
+  - [OptionSpecificationError](#optionspecificationerror)
+  - [CommandSpecificationError](#commandspecificationerror)
 - [Parse errors](#parse-errors)
-  - [Base parse errors](#base-parse-errors)
+  - [ParseError](#parseerror)
   - [Option parse errors](#option-parse-errors)
   - [Positional parse errors](#positional-parse-errors)
   - [Subcommand parse errors](#subcommand-parse-errors)
@@ -309,7 +309,7 @@ class ParseError(FlagrantError):
 - `path` (CommandPath) - Tuple of command names from root to where error occurred
 - `args` (FrozenArgs) - Complete tuple of arguments being parsed
 - `position` (ArgPosition) - Index in `args` where the error occurred
-- `context` (ErrorContext) - Extra structured information
+- `context` (ErrorContext) - Additional structured information
 - `command` (property, CommandName) - The command where the error occurred (last element of `path`)
 
 **Example:**
@@ -839,7 +839,7 @@ except OptionMissingValueError as e:
 
     # Access optional context dictionary
     if e.context:
-        print(f"Extra context: {e.context}")
+        print(f"Additional context: {e.context}")
 ```
 
 ### Handling multiple error types

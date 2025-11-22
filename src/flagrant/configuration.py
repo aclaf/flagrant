@@ -128,10 +128,10 @@ class ParserConfiguration:
     """
 
     allow_abbreviated_options: bool = False
-    allow_abbreviated_subcommands: bool = False
+    allow_abbreviated_commands: bool = False
     allow_command_aliases: bool = True
     allow_duplicate_list_indices: bool = False
-    allow_inline_values_without_equals: bool = False
+    allow_inline_values_without_separator: bool = False
     allow_negative_numbers: bool = True
     allow_sparse_lists: bool = False
     argument_file_allowed_path_patterns: tuple["Pattern[str]", ...] | None = None
@@ -154,7 +154,7 @@ class ParserConfiguration:
     max_argument_file_depth: int = DEFAULT_MAX_ARGUMENT_FILE_DEPTH
     merge_strategy: "DictMergeStrategy" = DEFAULT_MERGE_STRATEGY
     minimum_abbreviation_length: int = DEFAULT_MINIMUM_ABBREVIATION_LENGTH
-    option_value_separator: str = DEFAULT_OPTION_VALUE_SEPARATOR
+    inline_value_separator: str = DEFAULT_OPTION_VALUE_SEPARATOR
     negative_number_pattern: "Pattern[str]" = DEFAULT_NEGATIVE_NUMBER_PATTERN
     nesting_separator: str = DEFAULT_NESTING_SEPARATOR
     short_name_prefix: str = DEFAULT_SHORT_NAME_PREFIX

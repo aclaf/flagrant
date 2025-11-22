@@ -448,7 +448,7 @@ When `allow_item_separator=True`, a single argument can contain multiple key-val
 
 ## Error handling
 
-Dictionary parsing can encounter multiple error conditions:
+Dictionary parsing can encounter several error conditions:
 
 **Parse errors** (malformed syntax):
 

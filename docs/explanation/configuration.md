@@ -10,7 +10,8 @@ This page documents the parser configuration model in Flagrant. It explains the 
 - [Configuration model](#configuration-model)
 - [Positional mode configuration](#positional-mode-configuration)
 - [Name resolution configuration](#name-resolution-configuration)
-- [Flag behavior](#flag-behavior)
+- [Flag value handling](#flag-value-handling)
+- [Negative number handling](#negative-number-handling)
 - [Value flattening](#value-flattening)
 - [Configuration interactions](#configuration-interactions)
 - [Preset configurations](#preset-configurations)
@@ -169,7 +170,7 @@ The `strict_posix_options` flag controls the fundamental parsing style: GNU-styl
 
 **Configuration:** `strict_posix_options=False`
 
-In flexible mode, options, and positional arguments can appear in any order. The parser recognizes options anywhere in the argument list, regardless of position relative to positionals.
+In flexible mode, options and positional arguments can appear in any order. The parser recognizes options anywhere in the argument list, regardless of position relative to positionals.
 
 ```python# All valid - options can appear anywhere
 result = parse_command_line_args(spec, ["--verbose", "file.txt", "--output", "result.txt"])
@@ -194,7 +195,7 @@ result = parse_command_line_args(spec, ["file.txt", "result.txt", "--verbose", "
 
 **Configuration:** `strict_posix_options=True`
 
-When POSIX-style ordering is enabled, all options must precede all positional arguments. Once the parser encounters the first positional argument, it stops recognizing option patterns and treats all following arguments as positionals—even if they structurally look like options.
+When POSIX-style ordering is enabled, all options must precede all positional arguments. Once the parser encounters the first positional argument, it stops recognizing option patterns and treats all subsequent arguments as positionals—even if they structurally look like options.
 
 ```python# Valid - options before positionals
 result = parse_command_line_args(spec, ["--verbose", "--output", "result.txt", "file.txt"])
@@ -225,7 +226,7 @@ except UnexpectedPositionalArgumentError:
 
 ## Name resolution configuration
 
-Name resolution determines how user-provided option and subcommand names match against defined specifications. You can enable multiple strategies independently, providing rich compositional matching behavior.
+Name resolution determines how user-provided option and subcommand names match against defined specifications. Multiple strategies can be independently enabled, providing rich compositional matching behavior.
 
 ### Abbreviation matching
 
@@ -324,7 +325,7 @@ except UnknownOptionError:
 
 - Must be >= 1
 - Values less than 1 raise `ParserConfigurationError` at construction time
-- Does not affect exact matches (for example, `--verbose` works regardless of minimum)
+- Does not affect exact matches (e.g., `--verbose` works regardless of minimum)
 
 **Practical values:**
 
@@ -685,7 +686,7 @@ assert result.options["input"].value == ("a", "b", "c", "d")
 
 - When the structure of values (grouped by occurrence) is semantically significant
 - When you need to preserve which values came from the same option occurrence
-- Building complex data structures where nesting conveys meaning (for example, key-value pairs)
+- Building complex data structures where nesting conveys meaning (e.g., key-value pairs)
 - Options with arity > 1 where each occurrence represents a logical unit
 
 **When to use EXTEND:**
@@ -699,7 +700,7 @@ assert result.options["input"].value == ("a", "b", "c", "d")
 
 ## Configuration interactions
 
-Configuration flags are mostly independent, but some combinations produce specific behaviors worth understanding.
+Configuration flags are largely independent, but some combinations produce specific behaviors worth understanding.
 
 ### Abbreviation with case insensitivity
 
@@ -776,7 +777,7 @@ Common use cases are well-served by preset configurations that combine multiple 
 - Supports Python naming conventions
 - Suitable for tools like cargo, npm, pip
 
-### Traditional unix utility
+### Traditional Unix utility
 
 ```python    allow_abbreviated_options=False,
     allow_abbreviated_subcommands=False,

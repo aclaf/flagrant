@@ -1,4 +1,4 @@
-"""Enumerations for command-line argument parsing and completion."""
+"""Enumerations for command-line argument parsing."""
 
 from enum import Enum
 

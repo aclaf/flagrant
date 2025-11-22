@@ -2,7 +2,6 @@
 above
 accessors
 accumulation_mode
-backports
 [Aa]claf'?s?
 aclaf.sh
 all of
@@ -31,7 +30,6 @@ Clikt
 [Cc]ompleters?
 [Cc]omposabilit(y|ies)
 [Cc]omposable
-CommandSpecification
 [Cc]onsts?
 const_value
 [Cc]yclopts'?s?
@@ -48,12 +46,10 @@ exfiltrate
 falsey(_flag_values)?
 FastAPI'?s?
 [Ff]lagrant'?s?
-FlagrantError
 frozensets?
 [Gg]its?
 Google-style
 canonicalization
-hashable
 heading_levels?
 htop
 idempotence
@@ -72,7 +68,6 @@ linearization
 libFuzzer
 lockfiles
 long_option
-lookahead
 lookups
 maintainer's
 max_negative
@@ -112,9 +107,6 @@ ORMs?
 overlapping_flag_values
 overridable
 parameter_type
-ParseError
-ParserConfigurationError
-ParseResult
 parser's
 pathlibs?
 performant
@@ -129,7 +121,7 @@ POSIX
 [Pp]ython
 Pythonic
 [Dd]eclaratively?
-[Rr]efactorings?
+refactorings?
 [Rr]enderers?
 REPLs?
 [Rr]eusabilit(y|ies)
@@ -139,7 +131,6 @@ sanitization
 short_option
 Sigstore
 snake_case
-SpecificationError
 [Ss]tderr
 [Ss]tdin
 [Ss]tdout
@@ -153,7 +144,6 @@ tmux
 [Tt]okenize[drs]?
 tokenization
 toolchains
-tooltips
 trailing_args
 trailing_mode
 truthy(_flag_values)?

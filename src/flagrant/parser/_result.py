@@ -18,7 +18,9 @@ class ParseResult:
     command: str
     extra_args: tuple[str, ...] = field(default_factory=tuple)
     options: dict[str, "OptionValue"] = field(default_factory=dict)
-    positionals: dict["PositionalName", "PositionalValue"] = field(default_factory=dict)
+    positionals: dict[
+        "PositionalName", "tuple[PositionalValue, ...] | PositionalValue"
+    ] = field(default_factory=dict)
     subcommand: "ParseResult | None" = None
 
     def __iter__(self) -> "Iterator[ParseResult]":
@@ -75,13 +77,15 @@ class ParseResult:
             merged.update(result.options)
         return merged
 
-    def get_all_positionals(self) -> dict[str, "PositionalValue"]:
+    def get_all_positionals(
+        self,
+    ) -> dict[PositionalName, "tuple[PositionalValue, ...] | PositionalValue"]:
         """Get all positionals from the entire hierarchy.
 
         Returns a merged dictionary with leaf values taking precedence
         over parent values when names conflict.
         """
-        merged: dict[str, PositionalValue] = {}
+        merged: dict[PositionalName, tuple[PositionalValue, ...] | PositionalValue] = {}
         for result in self:
             merged.update(result.positionals)
         return merged
@@ -107,8 +111,10 @@ class ParseResult:
         return self.options.get(name, default)
 
     def get_positional(
-        self, name: str, default: "PositionalValue | None" = None
-    ) -> "PositionalValue | None":
+        self,
+        name: str,
+        default: "tuple[PositionalValue, ...] | PositionalValue | None" = None,
+    ) -> "tuple[PositionalValue, ...] | PositionalValue | None":
         """Get a positional value with a fallback default."""
         return self.positionals.get(name, default)
 
@@ -131,7 +137,9 @@ class ParseResult:
                 return result.options[name]
         return None
 
-    def find_positional(self, name: str) -> "PositionalValue | None":
+    def find_positional(
+        self, name: str
+    ) -> "tuple[PositionalValue, ...] | PositionalValue | None":
         """Find a positional in this result or any parent command.
 
         Searches from leaf to root, returning the first match found.

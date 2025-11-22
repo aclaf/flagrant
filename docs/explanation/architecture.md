@@ -248,7 +248,7 @@ Flagrant parser is designed for correctness, predictability, and performance:
 
 ### Immutable specifications
 
-Specifications are constructed once and never modified. This immutability enables multiple important optimizations and guarantees:
+Specifications are constructed once and never modified. This immutability enables several important optimizations and guarantees:
 
 **Thread safety**: A single `CommandSpecification` can be shared across multiple threads parsing different inputs simultaneously. No locks or synchronization are required because the specification cannot change.
 
@@ -262,21 +262,21 @@ The cost is that specifications cannot be incrementally built or modified after 
 
 ### Single-pass parsing
 
-Flagrant's parser makes exactly one left-to-right pass through the argument vector, classifying each token and consuming values as it goes. The parser performs no backtracking, no lookahead beyond immediate value consumption, and no speculative parsing.
+Flagrant's parser makes exactly one left-to-right pass through the argument vector, classifying each token and consuming values as it goes. There is no backtracking, no lookahead beyond immediate value consumption, and no speculative parsing.
 
-**Performance characteristics**: Single-pass parsing provides O(n) complexity where n is the number of arguments. Memory usage is proportional to the result size, not the input size, since tokens are classified and consumed immediately. This makes parsing performance highly predictable and suitable for even extremely large argument vectors.
+**Performance characteristics**: Single-pass parsing provides O(n) complexity where n is the number of arguments. Memory usage is proportional to the result size, not the input size, since tokens are classified and consumed immediately. This makes parsing performance highly predictable and suitable for even very large argument vectors.
 
 **Memory efficiency**: The parser does not build abstract syntax trees or maintain multiple candidate parse states. Intermediate data structures are minimal—typically just a working dictionary being populated. This keeps memory overhead low and garbage collection pressure minimal.
 
-**Predictable complexity**: Because the parser never backtracks, the worst-case complexity is identical to the best-case complexity. No pathological inputs exist that cause exponential behavior or excessive memory allocation.
+**Predictable complexity**: Because the parser never backtracks, the worst-case complexity is identical to the best-case complexity. There are no pathological inputs that cause exponential behavior or excessive memory allocation.
 
-The single-pass constraint does impose some limitations. For instance, positional arguments cannot be fully resolved until all options are processed (since options can appear in any order). But these limitations are handled cleanly through deferred grouping rather than multiple passes.
+The single-pass constraint does impose some limitations. For instance, positional arguments cannot be fully resolved until all options are processed (since options can appear in any order). However, these limitations are handled cleanly through deferred grouping rather than multiple passes.
 
 ### Fail-fast validation
 
 Flagrant validates specifications and configurations at construction time, not during parsing. If a `CommandSpecification` has duplicate option names or conflicting arity constraints, this is detected when the specification is created, raising a `SpecificationError`. If a `ParserConfiguration` has invalid settings (like a negative `max_argument_file_depth`), this is caught during configuration construction.
 
-**Construction-time vs parse-time errors**: Construction-time errors show problems with the CLI definition itself—developer mistakes that should be fixed in code. Parse-time errors show problems with user input—incorrect usage that should be reported to the user. By failing fast during construction, Flagrant ensures that all parse-time errors represent user mistakes, not specification bugs.
+**Construction-time vs parse-time errors**: Construction-time errors indicate problems with the CLI definition itself—developer mistakes that should be fixed in code. Parse-time errors indicate problems with user input—incorrect usage that should be reported to the user. By failing fast during construction, Flagrant ensures that all parse-time errors represent user mistakes, not specification bugs.
 
 **Clear error boundaries**: The distinction between `SpecificationError` (construction), `ParserConfigurationError` (construction), and `ParseError` (runtime) makes error sources immediately clear. Developers know that a `SpecificationError` means they need to fix their specification, not debug user input.
 
@@ -302,7 +302,7 @@ Flagrant is the bottom layer of a CLI stack:
 - Command execution: Invoking functions or methods based on parsed results
 - Error presentation: Formatting parse errors for user display
 
-**Clean contracts between layers**: The interface between Flagrant and higher layers is purely data. Flagrant produces a `ParseResult` containing string values and dictionaries. Higher layers consume this result and interpret it. No callbacks, dependency injection, or control inversion exists. This clean separation makes each layer independently testable and allows multiple higher-layer frameworks to build on Flagrant.
+**Clean contracts between layers**: The interface between Flagrant and higher layers is purely data. Flagrant produces a `ParseResult` containing string values and dictionaries. Higher layers consume this result and interpret it. There are no callbacks, no dependency injection, no control inversion. This clean separation makes each layer independently testable and allows multiple higher-layer frameworks to build on Flagrant.
 
 ## Module organization
 
@@ -342,8 +342,8 @@ Defines the `ParserConfiguration` dataclass containing all settings that control
 
 Defines default values for configuration options:
 
-- Default separators, prefixes, and escape characters (for example, `DEFAULT_LONG_NAME_PREFIX = "--"`)
-- Default patterns (for example, `DEFAULT_NEGATIVE_NUMBER_PATTERN`)
+- Default separators, prefixes, and escape characters (e.g., `DEFAULT_LONG_NAME_PREFIX = "--"`)
+- Default patterns (e.g., `DEFAULT_NEGATIVE_NUMBER_PATTERN`)
 
 Centralizing defaults ensures consistency and makes changing defaults a single-line modification.
 
@@ -353,7 +353,7 @@ Defines the base exception hierarchy for Flagrant:
 
 - `FlagrantError`: Base exception for all Flagrant errors
 
-Subsystems define their own specific exceptions (for example, `ParserError`, `SpecificationError`).
+Subsystems define their own specific exceptions (e.g., `ParserError`, `SpecificationError`).
 
 ### Parser subsystem (`flagrant.parser`)
 
@@ -385,7 +385,7 @@ The parser uses a single-pass algorithm with no backtracking. It maintains minim
 `ParseResult` provides rich traversal methods for working with subcommand hierarchies:
 
 - `__iter__`: Iterate through command hierarchy root-to-leaf
-- `path`: Full command path as tuple (for example, `("git", "remote", "add")`)
+- `path`: Full command path as tuple (e.g., `("git", "remote", "add")`)
 - `leaf`: The deepest subcommand result
 - `all_options`/`all_positionals`: Merged options/positionals from entire hierarchy
 - `find_option`/`find_positional`: Search from leaf to root
@@ -421,9 +421,9 @@ The specification subsystem defines CLI structure through immutable dataclasses.
 
 The option specification hierarchy includes:
 
-- `FlagOptionSpecification`: Boolean flags (for example, `--verbose`)
-- `ValueOptionSpecification`: Options accepting values (for example, `--output file.txt`)
-- `DictOptionSpecification`: Options accepting key=value pairs (for example, `--config key=value`)
+- `FlagOptionSpecification`: Boolean flags (e.g., `--verbose`)
+- `ValueOptionSpecification`: Options accepting values (e.g., `--output file.txt`)
+- `DictOptionSpecification`: Options accepting key=value pairs (e.g., `--config key=value`)
 
 Each option type includes:
 
@@ -491,7 +491,7 @@ A CLI is represented as a hierarchy of `CommandSpecification` objects. Each comm
 
 - **Options**: Named parameters like `--verbose` or `-o file`
 - **Positionals**: Unnamed parameters identified by position
-- **Subcommands**: Nested commands forming a tree (for example, `git remote add`)
+- **Subcommands**: Nested commands forming a tree (e.g., `git remote add`)
 
 The root `CommandSpecification` represents the top-level command. Its `subcommands` tuple contains nested `CommandSpecification` objects, each potentially containing further subcommands, forming an arbitrarily deep tree.
 
@@ -522,7 +522,7 @@ git_spec = CommandSpecification(
 
 This specification declares a `git` command with a `-v`/`--verbose` flag and a `git remote add <name> <url>` subcommand structure.
 
-### Option specifications (flag, value, dict)
+### Option specifications (Flag, Value, Dict)
 
 Options are named parameters that can appear in any order. Flagrant supports three kinds:
 
@@ -591,9 +591,9 @@ Positionals are matched in the order they appear in the specification. The parse
 Arity defines how many values a parameter accepts, specified as a `(min, max)` pair:
 
 - `Arity(1, 1)`: Exactly one value (most common for value options)
-- `Arity(2, 2)`: Exactly two values (for example, `--range 1 10`)
+- `Arity(2, 2)`: Exactly two values (e.g., `--range 1 10`)
 - `Arity(0, 0)`: No values (flags only)
-- `Arity(1, None)`: One or more values (unbounded, for example, variadic positionals)
+- `Arity(1, None)`: One or more values (unbounded, e.g., variadic positionals)
 - `Arity(0, None)`: Zero or more values (optional variadic)
 - `Arity(2, 5)`: Between 2 and 5 values (bounded range)
 
@@ -674,7 +674,7 @@ This type-specific design ensures result shapes match semantic intent.
 
 ### Why immutable dataclasses
 
-Specifications are frozen dataclasses (`frozen=True, slots=True`) for multiple reasons:
+Specifications are frozen dataclasses (`frozen=True, slots=True`) for several reasons:
 
 **Design rationale**:
 
@@ -692,9 +692,9 @@ Specifications are frozen dataclasses (`frozen=True, slots=True`) for multiple r
 
 **Benefits for caching**:
 
-- Derived data structures (for example, option name lookup tables) can be cached by specification identity
+- Derived data structures (e.g., option name lookup tables) can be cached by specification identity
 - No cache invalidation needed since specifications never change
-- Several parsers can share the same specification safely
+- Multiple parsers can share the same specification safely
 - Results can be cached by specification reference
 
 The cost is construction verbosity (custom `__init__` methods using `object.__setattr__`), but this one-time cost at construction is heavily outweighed by benefits throughout the lifetime of the specification.
@@ -705,7 +705,7 @@ The parser transforms an argument vector (`argv`) into a structured `ParseResult
 
 ### Single-pass algorithm
 
-The parsing algorithm consists of multiple phases executed in sequence:
+The parsing algorithm consists of several phases executed in sequence:
 
 **1. Argument file preprocessing (@file expansion)**
 
@@ -720,10 +720,10 @@ Argument files are read and parsed according to `argument_file_format` (LINE or 
 
 **2. Token classification**
 
-Each argument is classified into specific categories:
+Each argument is classified into one of several categories:
 
-- **Long option**: Matches `--prefix` pattern (for example, `--output`)
-- **Short option cluster**: Matches `-prefix` pattern (for example, `-vxf`)
+- **Long option**: Matches `--prefix` pattern (e.g., `--output`)
+- **Short option cluster**: Matches `-prefix` pattern (e.g., `-vxf`)
 - **Trailing separator**: The `--` argument (ends option processing)
 - **Subcommand**: Matches a subcommand name at appropriate position
 - **Positional value**: Everything else
@@ -761,7 +761,7 @@ When a subcommand is classified, the parser:
 3. Recursively parses the subcommand with its specification
 4. Nests the subcommand's `ParseResult` in the parent's `subcommand` field
 
-This recursive structure naturally handles arbitrary subcommand depth (for example, `git remote add origin url`).
+This recursive structure naturally handles arbitrary subcommand depth (e.g., `git remote add origin url`).
 
 #### Dictionary options overview
 
@@ -830,8 +830,8 @@ Parser configuration controls numerous aspects of parsing behavior:
 
 **Global vs per-option settings**:
 
-- Global settings apply to all options unless overridden (for example, `allow_negative_numbers`)
-- Per-option settings override global defaults (for example, `ValueOptionSpecification.allow_negative_numbers`)
+- Global settings apply to all options unless overridden (e.g., `allow_negative_numbers`)
+- Per-option settings override global defaults (e.g., `ValueOptionSpecification.allow_negative_numbers`)
 
 Example:
 
@@ -1040,7 +1040,7 @@ option2 = ValueOptionSpecification(
 
 **Flexibility without complexity**: Most users never specify configuration and rely on sensible defaults. Power users can set global configuration. Advanced use cases can override specific options. The three-tier system handles all these scenarios without requiring every user to specify every setting.
 
-**Explicit over implicit**: Configuration is always explicit—either in the configuration object, in the specification, or in the documented defaults. No hidden configuration sources or environment variables exist that magically change behavior.
+**Explicit over implicit**: Configuration is always explicit—either in the configuration object, in the specification, or in the documented defaults. There are no hidden configuration sources or environment variables that magically change behavior.
 
 **Clear precedence rules**: The precedence order (option > global > default) matches user intuition: "I configured this option specifically" beats "I configured everything" beats "system default."
 
@@ -1058,7 +1058,7 @@ These errors occur when creating specifications or configurations and indicate p
 
 - Duplicate option names (two options with the same long name)
 - Invalid arity constraints (min > max, or negative values)
-- Conflicting option configurations (for example, greedy option before other options)
+- Conflicting option configurations (e.g., greedy option before other options)
 - Invalid subcommand structure (duplicate subcommand names)
 
 Example:
@@ -1079,8 +1079,8 @@ CommandSpecification(
 
 - Negative `max_argument_file_depth`
 - Empty prefix strings
-- Invalid regular expression patterns (for example, for `negative_number_pattern`)
-- Conflicting settings (for example, `strict_posix_options=True` with interspersed mode)
+- Invalid regex patterns (e.g., for `negative_number_pattern`)
+- Conflicting settings (e.g., `strict_posix_options=True` with interspersed mode)
 
 **Caught before parsing**: All construction-time errors are raised during object construction, before any parsing begins. This fail-fast approach ensures that if a parser is successfully created, the specification and configuration are valid.
 
@@ -1115,7 +1115,7 @@ parse(["command", "--config", "keyvalue"])
 
 - `argv_snapshot`: The complete argument vector being parsed
 - `argument_index`: The index of the problematic argument
-- `subcommand_path`: The current subcommand path (for example, `["git", "remote", "add"]`)
+- `subcommand_path`: The current subcommand path (e.g., `["git", "remote", "add"]`)
 - `expected`: What the parser expected to see
 - `actual`: What the parser actually saw
 
@@ -1181,7 +1181,7 @@ Flagrant is designed for predictable, efficient performance without requiring tu
 
 ### Parser
 
-**O(n) single-pass complexity**: The parser makes exactly one left-to-right pass through the argument vector. Each argument is examined once, classified, and either consumed as a value or added to the result. No backtracking or re-parsing occurs, so complexity is strictly O(n) where n is the number of arguments.
+**O(n) single-pass complexity**: The parser makes exactly one left-to-right pass through the argument vector. Each argument is examined once, classified, and either consumed as a value or added to the result. There is no backtracking or re-parsing, so complexity is strictly O(n) where n is the number of arguments.
 
 **No backtracking**: Once a token is classified and consumed, the parser never revisits it. This eliminates worst-case exponential behavior that can occur in backtracking parsers with ambiguous grammars.
 
@@ -1191,15 +1191,15 @@ Flagrant is designed for predictable, efficient performance without requiring tu
 - Dictionaries for options and positionals (sized to actual results, not input)
 - Tuples for multi-valued options (sized exactly to arity)
 
-No speculative allocations, candidate parse trees, or temporary data structures exist that get discarded. Memory usage is proportional to the result size, not the input size.
+There are no speculative allocations, candidate parse trees, or temporary data structures that are discarded. Memory usage is proportional to the result size, not the input size.
 
-**Predictable performance**: Because complexity is O(n) with no backtracking and minimal allocations, performance is highly predictable. No pathological inputs exist that cause performance degradation. An argument vector of 1000 arguments takes proportionally longer than 100 arguments, with no super-linear growth.
+**Predictable performance**: Because complexity is O(n) with no backtracking and minimal allocations, performance is highly predictable. There are no pathological inputs that cause performance degradation. An argument vector of 1000 arguments takes proportionally longer than 100 arguments, with no super-linear growth.
 
 Typical performance on modern hardware:
 
-- Small commands (10-50 arguments): <1 ms
-- Medium commands (100-500 arguments): <10 ms
-- Large commands (1000+ arguments): <100 ms
+- Small commands (10-50 arguments): <1ms
+- Medium commands (100-500 arguments): <10ms
+- Large commands (1000+ arguments): <100ms
 
 For extremely large argument vectors, preprocessing (argument file expansion) may dominate parsing time, but this is typically not a concern for interactive CLI usage.
 
@@ -1367,7 +1367,7 @@ Aclaf validates values against business rules:
 - Port numbers must be 1-65535
 - File paths must exist (for inputs) or be writable (for outputs)
 - Dates must not be in the future
-- email addresses must match a pattern
+- Email addresses must match a pattern
 
 **Command execution**
 

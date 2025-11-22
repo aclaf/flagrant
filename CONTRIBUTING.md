@@ -1,6 +1,6 @@
 # Contributing to Flagrant
 
-Thank you for your interest in Flagrant! I'm excited that you're considering contributing. Flagrant is a specification-driven command-line parser and completion generator for Python, and it serves as the parsing engine for [Aclaf](https://aclaf.sh), a full-featured command-line application framework being developed in parallel.
+Thank you for your interest in Flagrant! I'm excited that you're considering contributing. Flagrant is a specification-driven command-line parser for Python, serving as the parsing engine for [Aclaf](https://aclaf.sh), a full-featured command-line application framework being developed in parallel.
 
 ## Project status
 
