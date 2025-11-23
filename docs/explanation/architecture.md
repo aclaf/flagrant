@@ -248,7 +248,7 @@ Flagrant parser is designed for correctness, predictability, and performance:
 
 ### Immutable specifications
 
-Specifications are constructed once and never modified. This immutability enables several important optimizations and guarantees:
+Specifications are constructed once and never modified. This immutability enables multiple important optimizations and guarantees:
 
 **Thread safety**: A single `CommandSpecification` can be shared across multiple threads parsing different inputs simultaneously. No locks or synchronization are required because the specification cannot change.
 
@@ -270,13 +270,13 @@ Flagrant's parser makes exactly one left-to-right pass through the argument vect
 
 **Predictable complexity**: Because the parser never backtracks, the worst-case complexity is identical to the best-case complexity. No pathological inputs exist that cause exponential behavior or excessive memory allocation.
 
-The single-pass constraint does impose some limitations. For instance, positional arguments cannot be fully resolved until all options are processed (since options can appear in any order). However, these limitations are handled cleanly through deferred grouping rather than multiple passes.
+The single-pass constraint does impose some limitations. For instance, positional arguments cannot be fully resolved until all options are processed (since options can appear in any order). But these limitations are handled cleanly through deferred grouping rather than multiple passes.
 
 ### Fail-fast validation
 
 Flagrant validates specifications and configurations at construction time, not during parsing. If a `CommandSpecification` has duplicate option names or conflicting arity constraints, this is detected when the specification is created, raising a `SpecificationError`. If a `ParserConfiguration` has invalid settings (like a negative `max_argument_file_depth`), this is caught during configuration construction.
 
-**Construction-time vs parse-time errors**: Construction-time errors indicate problems with the CLI definition itself—developer mistakes that should be fixed in code. Parse-time errors indicate problems with user input—incorrect usage that should be reported to the user. By failing fast during construction, Flagrant ensures that all parse-time errors represent user mistakes, not specification bugs.
+**Construction-time vs parse-time errors**: Construction-time errors show problems with the CLI definition itself—developer mistakes that should be fixed in code. Parse-time errors show problems with user input—incorrect usage that should be reported to the user. By failing fast during construction, Flagrant ensures that all parse-time errors represent user mistakes, not specification bugs.
 
 **Clear error boundaries**: The distinction between `SpecificationError` (construction), `ParserConfigurationError` (construction), and `ParseError` (runtime) makes error sources immediately clear. Developers know that a `SpecificationError` means they need to fix their specification, not debug user input.
 
@@ -522,7 +522,7 @@ git_spec = CommandSpecification(
 
 This specification declares a `git` command with a `-v`/`--verbose` flag and a `git remote add <name> <url>` subcommand structure.
 
-### Option specifications (Flag, Value, Dict)
+### Option specifications (flag, value, dict)
 
 Options are named parameters that can appear in any order. Flagrant supports three kinds:
 
@@ -674,7 +674,7 @@ This type-specific design ensures result shapes match semantic intent.
 
 ### Why immutable dataclasses
 
-Specifications are frozen dataclasses (`frozen=True, slots=True`) for several reasons:
+Specifications are frozen dataclasses (`frozen=True, slots=True`) for multiple reasons:
 
 **Design rationale**:
 
@@ -705,7 +705,7 @@ The parser transforms an argument vector (`argv`) into a structured `ParseResult
 
 ### Single-pass algorithm
 
-The parsing algorithm consists of several phases executed in sequence:
+The parsing algorithm consists of multiple phases executed in sequence:
 
 **1. Argument file preprocessing (@file expansion)**
 
@@ -720,7 +720,7 @@ Argument files are read and parsed according to `argument_file_format` (LINE or 
 
 **2. Token classification**
 
-Each argument is classified into one of several categories:
+Each argument is classified into specific categories:
 
 - **Long option**: Matches `--prefix` pattern (for example, `--output`)
 - **Short option cluster**: Matches `-prefix` pattern (for example, `-vxf`)

@@ -169,7 +169,7 @@ The `strict_posix_options` flag controls the fundamental parsing style: GNU-styl
 
 **Configuration:** `strict_posix_options=False`
 
-In flexible mode, options and positional arguments can appear in any order. The parser recognizes options anywhere in the argument list, regardless of position relative to positionals.
+In flexible mode, options, and positional arguments can appear in any order. The parser recognizes options anywhere in the argument list, regardless of position relative to positionals.
 
 ```python# All valid - options can appear anywhere
 result = parse_command_line_args(spec, ["--verbose", "file.txt", "--output", "result.txt"])
@@ -194,7 +194,7 @@ result = parse_command_line_args(spec, ["file.txt", "result.txt", "--verbose", "
 
 **Configuration:** `strict_posix_options=True`
 
-When POSIX-style ordering is enabled, all options must precede all positional arguments. Once the parser encounters the first positional argument, it stops recognizing option patterns and treats all subsequent arguments as positionals—even if they structurally look like options.
+When POSIX-style ordering is enabled, all options must precede all positional arguments. Once the parser encounters the first positional argument, it stops recognizing option patterns and treats all following arguments as positionals—even if they structurally look like options.
 
 ```python# Valid - options before positionals
 result = parse_command_line_args(spec, ["--verbose", "--output", "result.txt", "file.txt"])
@@ -331,7 +331,7 @@ except UnknownOptionError:
 - `1` - Maximum convenience, any single character prefix works
 - `3` - Balance between convenience and typo safety (default)
 - `4-5` - Conservative, reduces accidental matches
-- Higher - Extremely conservative, requires long prefixes
+- Higher - Very conservative, requires long prefixes
 
 ### Alias support
 
@@ -699,7 +699,7 @@ assert result.options["input"].value == ("a", "b", "c", "d")
 
 ## Configuration interactions
 
-Configuration flags are largely independent, but some combinations produce specific behaviors worth understanding.
+Configuration flags are mostly independent, but some combinations produce specific behaviors worth understanding.
 
 ### Abbreviation with case insensitivity
 
@@ -776,7 +776,7 @@ Common use cases are well-served by preset configurations that combine multiple 
 - Supports Python naming conventions
 - Suitable for tools like cargo, npm, pip
 
-### Traditional Unix utility
+### Traditional unix utility
 
 ```python    allow_abbreviated_options=False,
     allow_abbreviated_subcommands=False,

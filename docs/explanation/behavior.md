@@ -72,7 +72,7 @@ Invalid specifications raise errors during parser construction, establishing a f
 
 The expansion process maintains left-to-right order, which directly affects precedence: arguments from earlier files appear earlier in the expanded list, and later arguments override earlier ones according to last-wins semantics. The main parsing loop operates on the fully expanded argument list with all `@file` references resolved.
 
-Argument file expansion can fail with several error types (see [error types specification](errors.md)):
+Argument file expansion can fail with multiple error types (see [error types specification](errors.md)):
 
 - `ArgumentFileNotFoundError` - Referenced file does not exist
 - `ArgumentFileReadError` - File exists but cannot be read (permissions, I/O errors)
@@ -123,7 +123,7 @@ The result is immutable after construction, enabling safe sharing and aggressive
 
 ## Argument classification algorithm
 
-The parser classifies each argument into one of several syntactic categories. Classification is deterministic given a parser configuration and uses precedence rules to resolve cases where an argument could match multiple patterns.
+The parser classifies each argument into one of multiple syntactic categories. Classification is deterministic given a parser configuration and uses precedence rules to resolve cases where an argument could match multiple patterns.
 
 ### Classification precedence
 
@@ -140,7 +140,7 @@ Arguments are classified in the following precedence order:
 
 - **Single dash** (`-`) is always treated as a positional argument, following Unix convention for stdin/stdout
 - **Negative numbers** are treated as positionals when `allow_negative_numbers=True` and positional specs are defined
-- **POSIX-style ordering boundary** - Once the first positional is encountered when `strict_posix_options=True`, all subsequent arguments become positionals
+- **POSIX-style ordering boundary** - Once the first positional is encountered when `strict_posix_options=True`, all following arguments become positionals
 
 ### Formal classification algorithm
 
@@ -192,7 +192,7 @@ The parser classifies each argument according to the following algorithm:
 
 ### POSIX-style ordering enforcement
 
-When `strict_posix_options=True`, the parser enforces POSIX-style ordering where all options must precede all positional arguments. Once the `positionals_started` flag is set (by encountering the first argument that is not an option), all subsequent option-like arguments are reclassified as positionals.
+When `strict_posix_options=True`, the parser enforces POSIX-style ordering where all options must precede all positional arguments. Once the `positionals_started` flag is set (by encountering the first argument that is not an option), all following option-like arguments are reclassified as positionals.
 
 This provides users with the guarantee that option-like values can be passed as positional arguments without ambiguity when POSIX-style ordering is enabled, as long as they appear after at least one positional argument.
 
@@ -269,7 +269,7 @@ flowchart TD
 **Key decision points:**
 
 1. **Flag vs non-flag:** Flags cannot accept values; attempting to provide one raises an error
-2. **Inline value with multi-value arity:** Inline values can be combined with following arguments to satisfy arity constraints; an error is raised only if total values (inline + following) are less than minimum arity
+2. **Inline value with multi-value arity:** Inline values can be combined with following arguments to meet arity constraints; an error is raised only if total values (inline + following) are less than minimum arity
 3. **Zero-arity options:** Options with `arity.min == 0` can complete without values
 4. **Value consumption:** Non-flag options consume values from following arguments when no inline value is present, or combine inline values with following arguments when inline values are provided
 
@@ -279,9 +279,9 @@ When an equals sign is present in a long option, the value assignment is explici
 
 - The inline value provides exactly one value
 - For flag options, equals syntax raises an error (flags do not accept values)
-- For non-flag options, inline values can be combined with following arguments to satisfy arity constraints
+- For non-flag options, inline values can be combined with following arguments to meet arity constraints
 - For non-flag options with arity `(1, 1)`, the inline value alone satisfies the requirement
-- For non-flag options with arity `(2, 3)`, an inline value plus following arguments can satisfy the requirement
+- For non-flag options with arity `(2, 3)`, an inline value plus following arguments can meet the requirement
 
 Examples with an option having arity `(2, 3)`:
 
@@ -410,7 +410,7 @@ The parser treats all options except the last as "inner" options that must be fl
 
 **Inner option constraints:**
 
-Inner options (all except the last) must satisfy one of these conditions:
+Inner options (all except the last) must meet one of these conditions:
 
 - Be a flag (is_flag=True) - Set to True
 - Have zero arity (0, 0) - Set to True
@@ -442,7 +442,7 @@ Value consumption handles consuming multiple values from following arguments whe
 
 ### Algorithm overview
 
-Value consumption consumes arguments from the remaining argument list until one of several stopping conditions is met. The algorithm respects the option's arity constraints, stopping at the maximum arity or earlier if a stopping condition is encountered.
+Value consumption consumes arguments from the remaining argument list until one of multiple stopping conditions is met. The algorithm respects the option's arity constraints, stopping at the maximum arity or earlier if a stopping condition is encountered.
 
 ### Stopping conditions
 
@@ -536,7 +536,7 @@ The accumulation algorithm determines how to combine values when an option appea
        - Use new option value as-is
      - Return new option
 
-2. **Process subsequent occurrences:**
+2. **Process later occurrences:**
 
    - **FIRST_WINS mode:**
      - Discard new value entirely
@@ -584,7 +584,7 @@ The accumulation algorithm determines how to combine values when an option appea
 
 **LAST_WINS** - Each new occurrence completely replaces the previous value. This is the default and enables patterns where command-line arguments override configuration file settings.
 
-**FIRST_WINS** - Only the first occurrence is kept; subsequent occurrences are silently discarded. This provides immutable semantics where the initial specification locks in the value.
+**FIRST_WINS** - Only the first occurrence is kept; later occurrences are silently discarded. This provides immutable semantics where the initial specification locks in the value.
 
 **APPEND** - Each occurrence's arity-bounded values are appended as a separate tuple element. For options with `arity.max > 1`, this creates nested tuple structures preserving the grouping of values per occurrence. Essential for options like `--define KEY VAL` where each pair should remain grouped.
 
@@ -1004,7 +1004,7 @@ program -v -v --no-v -v
 Flag negation interacts with accumulation modes:
 
 - **LAST mode**: Negation sets the boolean to false; repeated positive/negated flags produce the final value from the last occurrence
-- **FIRST mode**: Only the first occurrence counts; subsequent negations or repetitions are ignored
+- **FIRST mode**: Only the first occurrence counts; later negations or repetitions are ignored
 - **COUNT mode**: COUNT increments only for positive occurrences; negated flags (`--no-flag`) do not increment the counter
 - **ERROR mode**: Both positive and negated forms count as occurrences for duplication detection
 
@@ -1331,13 +1331,13 @@ The detailed algorithms for lexical analysis, path parsing, tree construction, a
 
 ### Special handling
 
-Dictionary options differ from value options in several ways:
+Dictionary options differ from value options in multiple ways:
 
 - **Structured parsing**: Values are parsed as key-value pairs rather than opaque strings
 - **Merge accumulation**: Default accumulation mode is MERGE rather than LAST
 - **Nested structures**: Dot notation and bracket notation create nested dictionaries and lists
 - **Type conflicts**: Parser detects when paths attempt to use same location as both dict and list
-- **Validation**: Additional validation for sparse lists, duplicate indices, and structural constraints
+- **Validation**: Extra validation for sparse lists, duplicate indices, and structural constraints
 
 ### Integration with general parsing
 

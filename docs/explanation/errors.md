@@ -309,7 +309,7 @@ class ParseError(FlagrantError):
 - `path` (CommandPath) - Tuple of command names from root to where error occurred
 - `args` (FrozenArgs) - Complete tuple of arguments being parsed
 - `position` (ArgPosition) - Index in `args` where the error occurred
-- `context` (ErrorContext) - Additional structured information
+- `context` (ErrorContext) - Extra structured information
 - `command` (property, CommandName) - The command where the error occurred (last element of `path`)
 
 **Example:**
@@ -839,7 +839,7 @@ except OptionMissingValueError as e:
 
     # Access optional context dictionary
     if e.context:
-        print(f"Additional context: {e.context}")
+        print(f"Extra context: {e.context}")
 ```
 
 ### Handling multiple error types

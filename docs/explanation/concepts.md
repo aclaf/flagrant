@@ -81,14 +81,14 @@ Flagrant uses a three-tier option specification hierarchy to model different par
 - `greedy`: Whether to consume all remaining arguments
 - `allow_item_separator`: Enable shorthand syntax for list values
 - `allow_negative_numbers`: Allow negative numbers as values
-- Various separator and pattern configuration fields
+- Multiple separator and pattern configuration fields
 
 **DictOptionSpecification** - Specialized for dictionary options that parse key-value pairs into structured data:
 
 - `accumulation_mode`: Type-specific `DictAccumulationMode` enum (MERGE, FIRST, LAST, APPEND, ERROR)
 - `merge_strategy`: Controls shallow vs deep merging when `accumulation_mode=MERGE`
 - `arity`: Number of key-value arguments expected per occurrence
-- Various separator and behavior configuration fields
+- Multiple separator and behavior configuration fields
 
 Each option type has its own accumulation mode enum tailored to that type's semantics. Flag options count occurrences or track boolean state, value options collect or replace string values, and dictionary options merge or accumulate structured data. See [Accumulation modes](#accumulation-modes) for detailed semantics of each mode.
 
@@ -144,7 +144,7 @@ All specification objects in Flagrant are immutable after construction. This imm
 
 ### Understanding the immutability guarantee
 
-Once you create a spec object and it passes validation, nothing about it can change. This applies to `CommandSpec`, `OptionSpec`, `PositionalSpec`, and all nested structures they contain. This immutability brings several benefits: specifications can be safely shared across threads, cached aggressively for performance, and reasoned about without worrying about hidden state changes.
+Once you create a spec object and it passes validation, nothing about it can change. This applies to `CommandSpec`, `OptionSpec`, `PositionalSpec`, and all nested structures they contain. This immutability brings multiple benefits: specifications can be safely shared across threads, cached aggressively for performance, and reasoned about without worrying about hidden state changes.
 
 Immutability is enforced through construction-time validation combined with the use of immutable collection types for all container fields. Collections are represented using immutable types (tuples instead of lists, frozen sets instead of mutable sets) and structural modifications after construction are prevented at the implementation level.
 
@@ -164,7 +164,7 @@ Validation results can be cached indefinitely. Once a spec passes validation at 
 
 Immutability determines when validation can happen. All structural validation happens at construction time because the spec never changes after creation—there's no opportunity to validate later. This gives you immediate feedback when defining your CLI interface, catching errors right at the point of definition rather than discovering them during runtime parsing.
 
-Parse-time validation then focuses exclusively on user input, not spec configuration. The parser knows that all specs are internally consistent, so it only needs to check whether the user's arguments satisfy the spec's constraints, not whether the specs themselves are valid.
+Parse-time validation then focuses exclusively on user input, not spec configuration. The parser knows that all specs are internally consistent, so it only needs to check whether the user's arguments meet the spec's constraints, not whether the specs themselves are valid.
 
 ## Specification composition
 
@@ -224,7 +224,7 @@ The minimum component tells you the minimum number of values required. If fewer 
 
 ### Common arity patterns
 
-Several arity patterns occur frequently in command-line interfaces and carry conventional semantics:
+Common arity patterns occur frequently in command-line interfaces and carry conventional semantics:
 
 Flags with arity `(0, 0)` represent boolean options that accept no values. When present, the flag is true; when absent, false. Examples include `--verbose`, `--debug`, and `--help`. Required single value options with arity `(1, 1)` form the most common pattern for options requiring exactly one value. Examples include `--output file.txt`, `--config app.yaml`, and `--port 8080`. The optional single value pattern with arity `(0, 1)` can appear without a value or with one value, with the parser using a constant value when no value is provided. Examples include `--color` (defaults to "auto") and `--optimize` (defaults to highest level).
 
@@ -346,7 +346,7 @@ This fixed enumeration ensures predictable, well-defined behavior for each mode.
 
 Flag options use `FlagAccumulationMode` with the following modes:
 
-**FIRST** - Keeps only the first occurrence, silently ignoring all later occurrences. When a flag appears multiple times, the parser accepts the first occurrence and discards all subsequent ones. The final parsed result contains the boolean value from the first occurrence.
+**FIRST** - Keeps only the first occurrence, silently ignoring all later occurrences. When a flag appears multiple times, the parser accepts the first occurrence and discards all following ones. The final parsed result contains the boolean value from the first occurrence.
 
 ```bash
 # With FIRST mode:
@@ -390,7 +390,7 @@ program --verbose --verbose
 
 Value options use `ValueAccumulationMode` with the following modes:
 
-**FIRST** - Keeps only the first value, silently ignoring all later occurrences. When an option appears multiple times, the parser accepts the first occurrence and discards all subsequent occurrences. The final parsed result contains only the value from the first occurrence.
+**FIRST** - Keeps only the first value, silently ignoring all later occurrences. When an option appears multiple times, the parser accepts the first occurrence and discards all following occurrences. The final parsed result contains only the value from the first occurrence.
 
 ```bash
 # With FIRST mode:
@@ -517,7 +517,7 @@ Selecting the appropriate accumulation mode depends on the option type and seman
 - Use LAST (default) when the most recent boolean value should win
 - Use FIRST when the flag represents an immutable setting
 - Use COUNT for verbosity levels or other incrementing counters
-- Use ERROR when multiple flag specifications indicate user error
+- Use ERROR when multiple flag specifications suggest user error
 
 **For value options:**
 
@@ -534,7 +534,7 @@ Selecting the appropriate accumulation mode depends on the option type and seman
 - Use FIRST when the initial dictionary should lock in values
 - Use LAST when the most recent dictionary should completely replace earlier ones
 - Use APPEND when maintaining separate dictionaries is important
-- Use ERROR when multiple dictionary specifications indicate user error
+- Use ERROR when multiple dictionary specifications suggest user error
 
 ## Option resolution
 
@@ -622,9 +622,9 @@ This classification algorithm ensures that option-like arguments are distinguish
 
 ### Strict positional mode
 
-Strict positional mode enforces POSIX-style ordering where all options must precede all positional arguments. Once the parser encounters the first positional argument in strict mode, all subsequent arguments that look like options are treated as positional values instead.
+Strict positional mode enforces POSIX-style ordering where all options must precede all positional arguments. Once the parser encounters the first positional argument in strict mode, all following arguments that look like options are treated as positional values instead.
 
-Without strict mode (the default), options and positionals can be freely interspersed: `program file.txt --verbose --output result.txt` is equivalent to `program --verbose --output result.txt file.txt`. Both orderings produce the same parse result. With strict mode enabled, the first positional argument acts as a boundary. Everything before it is parsed normally (options as options, positionals as positionals). Everything after it becomes positional, even if it looks like an option: `program --verbose file.txt --output result.txt` would parse `--verbose` as an option but `--output` and `result.txt` as positionals because they follow the first positional `file.txt`.
+Without strict mode (the default), options, and positionals can be freely interspersed: `program file.txt --verbose --output result.txt` is equivalent to `program --verbose --output result.txt file.txt`. Both orderings produce the same parse result. With strict mode enabled, the first positional argument acts as a boundary. Everything before it is parsed normally (options as options, positionals as positionals). Everything after it becomes positional, even if it looks like an option: `program --verbose file.txt --output result.txt` would parse `--verbose` as an option but `--output` and `result.txt` as positionals because they follow the first positional `file.txt`.
 
 Strict mode is useful for implementing POSIX-compliant parsers and for commands that need to accept option-like values as positional arguments without ambiguity. It shifts the parser from flexible GNU-style ordering to strict POSIX-style ordering.
 
@@ -810,7 +810,7 @@ Keys containing dots, brackets, or equals signs require escaping to distinguish 
 command --config 'service\.kubernetes\.io/name=myservice'
 # Produces: {"service.kubernetes.io/name": "myservice"}
 
-# Without escaping, dots indicate nesting
+# Without escaping, dots show nesting
 command --config service.kubernetes.io/name=myservice
 # Produces: {"service": {"kubernetes": {"io/name": "myservice"}}}
 ```
@@ -882,7 +882,7 @@ Since argument files expand inline, their position determines precedence. Argume
 
 Argument file expansion is a preprocessing transformation that runs before normal parsing begins. The preprocessing function takes the raw argument list and produces an expanded list with all `@file` references resolved. This expanded list then feeds into the parser's normal argument classification and value consumption algorithms. The parser itself remains unchanged and doesn't need to know about argument files.
 
-You can control argument file behavior through several configuration options: `argument_file_prefix` (character triggering expansion, default `@`), `argument_file_format` (line-based or shell-style), `argument_file_comment_char` (comment prefix, default `#`), and `max_argument_file_depth` (recursion limit if supported). Setting the prefix to `None` disables the feature entirely.
+You can control argument file behavior through multiple configuration options: `argument_file_prefix` (character triggering expansion, default `@`), `argument_file_format` (line-based or shell-style), `argument_file_comment_char` (comment prefix, default `#`), and `max_argument_file_depth` (recursion limit if supported). Setting the prefix to `None` disables the feature entirely.
 
 !!! note "Shell completions in Aclaf"
     Shell completion for argument files (suggesting `@config.yaml` when the user types `@`) will be handled by Aclaf, not Flagrant. The Flagrant parser is responsible only for expanding argument file references during parsing.

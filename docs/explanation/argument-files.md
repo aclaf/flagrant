@@ -27,7 +27,7 @@ This page describes the argument file (response file) feature in Flagrant's comm
 
 ## Overview
 
-Argument files (also known as response files or @-files) allow users to specify command-line arguments in external files rather than directly on the command line. This feature addresses several practical concerns including command-line length limitations on various platforms, reusability of common argument sets, and improved maintainability for complex invocations. The argument file mechanism expands file contents inline during argument processing, treating the file's contents as if they had been typed directly on the command line at that position.
+Argument files (also known as response files or @-files) allow users to specify command-line arguments in external files rather than directly on the command line. This feature addresses multiple practical concerns including command-line length limitations on different platforms, reusability of common argument sets, and improved maintainability for complex invocations. The argument file mechanism expands file contents inline during argument processing, treating the file's contents as if they had been typed directly on the command line at that position.
 
 This specification defines the format, syntax, processing semantics, and integration points for argument file support in Flagrant's parser. The design prioritizes simplicity and predictability while maintaining compatibility with established conventions from tools like javac, Clikt, and picocli. Argument file processing occurs as a preprocessing phase before normal parsing begins, keeping the concerns cleanly separated.
 
@@ -103,7 +103,7 @@ Disabling argument file expansion through configuration causes all `@` prefixes 
 
 ### Recursive expansion
 
-The specification initially disallows recursive expansion where an argument file itself contains `@file` references. If an argument file contains a line like `@other.args`, that line is treated as the literal argument string `@other.args` rather than triggering further file expansion. This prevents infinite loops, simplifies implementation, and matches javac's documented behavior in several versions.
+The specification initially disallows recursive expansion where an argument file itself contains `@file` references. If an argument file contains a line like `@other.args`, that line is treated as the literal argument string `@other.args` rather than triggering further file expansion. This prevents infinite loops, simplifies implementation, and matches javac's documented behavior in multiple versions.
 
 Future versions may support limited recursive expansion with explicit depth limits and cycle detection. If implemented, the depth limit should be configurable but default to a conservative value like 3 or 5 levels. Cycle detection must prevent infinite loops where file A references file B which references file A. When a cycle is detected, the parser should fail with a clear error message indicating which files form the cycle.
 
@@ -129,11 +129,11 @@ This precedence model is simple, predictable, and matches user expectations from
 
 ### Error handling
 
-When the parser encounters an `@file` argument, several error conditions may arise, and the specification defines how each should be handled.
+When the parser encounters an `@file` argument, multiple error conditions may arise, and the specification defines how each should be handled.
 
 If the file does not exist, the parser must fail with a clear error message indicating the file path and the fact that it could not be found. This is a hard error that prevents further processing. The error message should include the full resolved path to help users understand exactly what file the parser attempted to read.
 
-If the file exists but cannot be read due to permissions or other I/O errors, the parser fails with an error describing the specific problem. The error message should distinguish between "file not found" and "file cannot be read" to aid debugging. On Unix systems, this might indicate permission issues, while on Windows it might indicate file locking.
+If the file exists but cannot be read due to permissions or other I/O errors, the parser fails with an error describing the specific problem. The error message should distinguish between "file not found" and "file cannot be read" to aid debugging. On Unix systems, this might show permission issues, while on Windows it might show file locking.
 
 If the file contains malformed content (invalid UTF-8, null bytes, or other encoding issues), the parser should fail with an error indicating the problem and the approximate location within the file. Line numbers are helpful here when available.
 
@@ -147,13 +147,13 @@ The parser should never silently ignore an argument file error. All errors must 
 
 Argument file expansion is implemented as a preprocessing transformation that runs before the parser begins its normal argument analysis. The transformation takes the raw argument list (typically `sys.argv[1:]` in Python) and produces an expanded argument list with all `@file` references resolved. This expanded list is then fed to the parser's normal processing pipeline.
 
-Implementing expansion as a separate phase provides several benefits. The core parser remains unchanged and doesn't need to know about argument files. Testing can verify expansion independently of parsing semantics. Applications can optionally perform expansion themselves before calling the parser, allowing for custom file resolution or caching strategies. The preprocessing phase is where file I/O occurs, keeping the parser itself a pure function.
+Implementing expansion as a separate phase provides multiple benefits. The core parser remains unchanged and doesn't need to know about argument files. Testing can verify expansion independently of parsing semantics. Applications can optionally perform expansion themselves before calling the parser, allowing for custom file resolution or caching strategies. The preprocessing phase is where file I/O occurs, keeping the parser itself a pure function.
 
 The preprocessing function should have a signature like `expand_argument_files(argv: Sequence[str], config: ArgumentFileConfig) -> list[str]`. It returns a new list with all argument files expanded, leaving the original list unchanged. The function is deterministic and can be called multiple times with the same results.
 
 ### Configuration options
 
-Parser configuration should expose several options controlling argument file behavior:
+Parser configuration should expose multiple options controlling argument file behavior:
 
 The `argument_file_prefix` property specifies what character triggers file expansion. The default is `@`, but applications can set it to any single character or `None` to disable the feature entirely. An empty string also disables expansion.
 
@@ -167,7 +167,7 @@ The current working directory override allows applications to specify a director
 
 ### Type safety and error propagation
 
-Argument file operations can fail in numerous ways, and these failures must be represented in the type system. The preprocessing function should return a result type that can represent success or various error conditions. In Python, this might use an exception-based approach with specific exception types for each failure mode, or a Result type if the codebase adopts that pattern.
+Argument file operations can fail in many ways, and these failures must be represented in the type system. The preprocessing function should return a result type that can represent success or different error conditions. In Python, this might use an exception-based approach with specific exception types for each failure mode, or a Result type if the codebase adopts that pattern.
 
 Error types should include `ArgumentFileNotFoundError`, `ArgumentFileReadError`, `ArgumentFileFormatError`, `ArgumentFileRecursionError`, and similar specific exceptions. Each should carry relevant context like the file path, the original argument that triggered expansion, and for format errors, the line number where parsing failed.
 
@@ -199,7 +199,7 @@ Property tests can generate random argument lists with randomly placed argument 
 
 ### Error handling tests
 
-Dedicated tests should verify that all error conditions produce appropriate error messages with helpful information. Tests should mock file system operations to simulate various failure modes: files that exist but can't be read, files that become unavailable during expansion, files with invalid UTF-8 encoding, and so on.
+Dedicated tests should verify that all error conditions produce appropriate error messages with helpful information. Tests should mock file system operations to simulate different failure modes: files that exist but can't be read, files that become unavailable during expansion, files with invalid UTF-8 encoding, and so on.
 
 Error messages should be validated not just for correctness but for usability. They should be clear, specific, and actionable. A test might verify that an error message for a missing file includes the full path, a clear statement that the file wasn't found, and a suggestion to check the spelling or path.
 
@@ -209,9 +209,9 @@ Error messages should be validated not just for correctness but for usability. T
 
 The initial implementation focuses on line-based format, but shell-style parsing with whitespace separation and quoting support is a natural extension. This format would allow argument files to look more like actual command lines, with multiple arguments on a single line separated by spaces.
 
-Implementing this format requires a proper shell-style tokenizer that handles single quotes, double quotes, escape sequences, and line continuations. The tokenizer should follow established shell conventions to minimize surprises for users. However, it doesn't need to implement shell features like variable expansion or command substitution; it only needs to handle quoting and escaping.
+Implementing this format requires a proper shell-style tokenizer that handles single quotes, double quotes, escape sequences, and line continuations. The tokenizer should follow established shell conventions to minimize surprises for users. But it doesn't need to implement shell features like variable expansion or command substitution; it only needs to handle quoting and escaping.
 
-The format should be configurable so applications can choose which mode to use. Some applications might benefit from the simplicity of line-based format, while others might prefer the flexibility of shell-style format. The choice affects how users write their argument files and what characters require escaping.
+The format should be configurable so applications can choose which mode to use. Some applications might use the simplicity of line-based format, while others might prefer the flexibility of shell-style format. The choice affects how users write their argument files and what characters require escaping.
 
 ### Recursive expansion with cycle detection
 
@@ -231,7 +231,7 @@ Implementing search paths requires careful consideration of security implication
 
 ### Default argument files
 
-Some applications might benefit from automatically loading argument files if they exist, without requiring explicit `@file` references. For example, if `.apprc` exists in the current directory, load it automatically before processing command-line arguments. This provides configuration file behavior without requiring a separate configuration system.
+Some applications might use automatically loading argument files if they exist, without requiring explicit `@file` references. For example, if `.apprc` exists in the current directory, load it automatically before processing command-line arguments. This provides configuration file behavior without requiring a separate configuration system.
 
 Default files should have lower precedence than both explicit argument files and command-line arguments. They provide defaults that any explicit argument can override. The order of precedence from lowest to highest would be: default argument files, explicit argument files, command-line arguments.
 
@@ -249,7 +249,7 @@ Format validation could also verify that argument files match the application's 
 
 ### Path traversal
 
-Argument file paths should be validated to prevent path traversal attacks. An attacker-controlled argument file path like `@../../../etc/passwd` should not allow reading arbitrary system files. However, this is more of an application concern than a parser concern; if an attacker can control the command-line arguments, they can already cause arbitrary code execution in most contexts.
+Argument file paths should be validated to prevent path traversal attacks. An attacker-controlled argument file path like `@../../../etc/passwd` should not allow reading arbitrary system files. But this is more of an application concern than a parser concern; if an attacker can control the command-line arguments, they can already cause arbitrary code execution in most contexts.
 
 The parser should normalize paths and check that they resolve to expected locations. Applications processing untrusted input should restrict argument file paths to specific directories or disable the feature entirely. Absolute paths might be disallowed in security-sensitive contexts.
 

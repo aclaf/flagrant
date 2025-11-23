@@ -95,7 +95,7 @@ The grammar defines the **syntactic structure** of command-line input. Semantic 
 
 ## Argument classification
 
-The parser classifies each argument into one of several categories based on its structure and position in the argument sequence. This classification determines how the argument is processed.
+The parser classifies each argument into specific categories based on its structure and position in the argument sequence. This classification determines how the argument is processed.
 
 ### Classification rules
 
@@ -108,7 +108,7 @@ Arguments are classified using the following precedence:
 5. **Subcommand name:** An argument matching a defined subcommand name
 6. **Positional argument:** Any other argument
 
-The classification algorithm operates left-to-right with context from previous classifications. In strict positional mode, once the first positional is encountered, all subsequent arguments become positionals regardless of their structure.
+The classification algorithm operates left-to-right with context from previous classifications. In strict positional mode, once the first positional is encountered, all following arguments become positionals regardless of their structure.
 
 ### Formal classification grammar
 
@@ -152,7 +152,7 @@ program --verbose -- --not-an-option file.txt
 # Trailing: ["--not-an-option", "file.txt"]
 ```
 
-**In strict positional mode:** once the first positional argument is encountered, all subsequent arguments become positionals even if they structurally match option patterns.
+**In strict positional mode:** once the first positional argument is encountered, all following arguments become positionals even if they structurally match option patterns.
 
 ```bash
 # With strict_posix_options=True
@@ -198,7 +198,7 @@ Where:
 
 - `long_option_name` must be at least one character
 - The first character must be alphabetic
-- Subsequent characters can be alphanumeric, dash, or underscore (subject to normalization)
+- Following characters can be alphanumeric, dash, or underscore (subject to normalization)
 
 **Minimum length:** long option names must be at least 1 character. Single-character long options like `--v` are valid and distinct from short options `-v`.
 
@@ -251,7 +251,7 @@ equals_value ::= "=" value_content
 value_content ::= <CHAR>*
 ```
 
-The `value_content` extends from the first character after `=` to the end of the argument string, including any subsequent equals signs.
+The `value_content` extends from the first character after `=` to the end of the argument string, including any later equals signs.
 
 ### Value assignment (inline values without equals)
 
@@ -361,7 +361,7 @@ Where:
 
 - Each character in `short_option_chars` must be a valid short option name
 - The first character must be alphabetic (`<ALPHA>`)
-- Subsequent characters can be alphanumeric (`<ALNUM>`: letters or digits)
+- Following characters can be alphanumeric (`<ALNUM>`: letters or digits)
 - `value_string` is consumed only if the last option accepts values
 
 **Single character requirement:** each short option name is exactly one character. Multi-character sequences like `-abc` represent clustering (multiple short options), not a single multi-character option.
@@ -555,7 +555,7 @@ The grouping algorithm is detailed in the [parser behavior specification](behavi
 
 When `strict_posix_options=True`:
 
-- Once the first positional is encountered, all subsequent arguments become positionals
+- Once the first positional is encountered, all following arguments become positionals
 - This includes arguments that structurally look like options
 
 ```bash
@@ -564,7 +564,7 @@ program --verbose file.txt --output result.txt
 # Positionals: ["file.txt", "--output", "result.txt"]
 ```
 
-Without strict mode, options and positionals can be freely intermixed.
+Without strict mode, options, and positionals can be freely intermixed.
 
 ## Dictionary argument syntax
 
@@ -698,7 +698,7 @@ Empty values are valid when specified explicitly:
 --config key=       # Empty string value for "key"
 ```
 
-Empty values satisfy minimum arity requirements. An option with arity `(1, 1)` accepts an empty string as its single required value.
+Empty values meet minimum arity requirements. An option with arity `(1, 1)` accepts an empty string as its single required value.
 
 ### Quoted values
 
