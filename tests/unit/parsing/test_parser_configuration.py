@@ -1,5 +1,3 @@
-"""Tests for parser configuration options including conversion and case settings."""
-
 import pytest
 
 from flagrant.configuration import ParserConfiguration

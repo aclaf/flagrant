@@ -1,12 +1,8 @@
-"""Advanced tests for inline values without equals feature."""
-
 import pytest
 
 from flagrant.configuration import ParserConfiguration
 from flagrant.parser import parse_command_line_args
-from flagrant.parser.exceptions import (
-    OptionMissingValueError,
-)
+from flagrant.parser.exceptions import OptionMissingValueError
 from flagrant.specification import (
     Arity,
     CommandSpecification,
@@ -17,7 +13,6 @@ from flagrant.specification import (
 
 class TestInlineValuesWithoutEquals:
     def test_option_value_format_without_equals(self):
-        # Arrange
         spec = CommandSpecification(
             name="test",
             options={
@@ -33,14 +28,11 @@ class TestInlineValuesWithoutEquals:
         )
         config = ParserConfiguration(allow_inline_values_without_equals=True)
 
-        # Act
         result = parse_command_line_args(spec, ["--output", "file.txt"], config)
 
-        # Assert
         assert result.options["output"] == "file.txt"
 
     def test_interaction_with_greedy_mode(self):
-        # Arrange
         spec = CommandSpecification(
             name="test",
             options={
@@ -56,16 +48,13 @@ class TestInlineValuesWithoutEquals:
         )
         config = ParserConfiguration(allow_inline_values_without_equals=True)
 
-        # Act - greedy should consume all following args
         result = parse_command_line_args(
             spec, ["--files", "file1.txt", "file2.txt", "file3.txt"], config
         )
 
-        # Assert
         assert result.options["files"] == ("file1.txt", "file2.txt", "file3.txt")
 
     def test_with_negative_numbers(self):
-        # Arrange
         spec = CommandSpecification(
             name="test",
             options={
@@ -83,14 +72,11 @@ class TestInlineValuesWithoutEquals:
             allow_inline_values_without_equals=True, allow_negative_numbers=True
         )
 
-        # Act
         result = parse_command_line_args(spec, ["--threshold", "-42"], config)
 
-        # Assert
         assert result.options["threshold"] == "-42"
 
     def test_with_option_like_values(self):
-        # Arrange
         spec = CommandSpecification(
             name="test",
             options={
@@ -114,15 +100,12 @@ class TestInlineValuesWithoutEquals:
         )
         config = ParserConfiguration(allow_inline_values_without_equals=True)
 
-        # Act & Assert - "--value" after "--pattern" is interpreted as a flag,
-        # not a value. This causes an error because pattern requires a value
         with pytest.raises(OptionMissingValueError) as exc_info:
             parse_command_line_args(spec, ["--pattern", "--value"], config)
 
         assert exc_info.value.option == "pattern"
 
     def test_empty_string_values(self):
-        # Arrange
         spec = CommandSpecification(
             name="test",
             options={
@@ -138,14 +121,11 @@ class TestInlineValuesWithoutEquals:
         )
         config = ParserConfiguration(allow_inline_values_without_equals=True)
 
-        # Act - empty string as value
         result = parse_command_line_args(spec, ["--message", ""], config)
 
-        # Assert
         assert result.options["message"] == ""
 
     def test_inline_value_stops_at_separator(self):
-        # Arrange
         spec = CommandSpecification(
             name="test",
             options={
@@ -161,18 +141,14 @@ class TestInlineValuesWithoutEquals:
         )
         config = ParserConfiguration(allow_inline_values_without_equals=True)
 
-        # Act - inline value stops at "--" even if greedy
         result = parse_command_line_args(spec, ["--option", "value", "more"], config)
 
-        # Assert - only "value" is captured, "more" is not because arity is 1
         assert result.options["option"] == "value"
 
-        # Test with short option
         result = parse_command_line_args(spec, ["-o", "shortval"], config)
         assert result.options["option"] == "shortval"
 
     def test_multiple_values_without_equals(self):
-        # Arrange
         spec = CommandSpecification(
             name="test",
             options={
@@ -188,10 +164,112 @@ class TestInlineValuesWithoutEquals:
         )
         config = ParserConfiguration(allow_inline_values_without_equals=True)
 
-        # Act - multiple values for single option
         result = parse_command_line_args(
             spec, ["--names", "alice", "bob", "charlie"], config
         )
 
-        # Assert
         assert result.options["names"] == ("alice", "bob", "charlie")
+
+
+class TestShortOptionInlineWithoutEquals:
+    def test_short_option_inline_value_without_equals(self):
+        spec = CommandSpecification(
+            name="test",
+            options={
+                "output": ValueOptionSpecification(
+                    name="output",
+                    arity=Arity.exactly_one(),
+                    greedy=False,
+                    preferred_name="o",
+                    long_names=(),
+                    short_names=("o",),
+                ),
+            },
+        )
+        config = ParserConfiguration(allow_inline_values_without_equals=True)
+
+        result = parse_command_line_args(spec, ["-ovalue"], config)
+
+        assert result.options["output"] == "value"
+
+    def test_clustered_short_options_with_inline_value_without_equals(self):
+        spec = CommandSpecification(
+            name="test",
+            options={
+                "all": FlagOptionSpecification(
+                    name="all",
+                    arity=Arity.none(),
+                    greedy=False,
+                    preferred_name="a",
+                    long_names=(),
+                    short_names=("a",),
+                ),
+                "build": FlagOptionSpecification(
+                    name="build",
+                    arity=Arity.none(),
+                    greedy=False,
+                    preferred_name="b",
+                    long_names=(),
+                    short_names=("b",),
+                ),
+                "config": ValueOptionSpecification(
+                    name="config",
+                    arity=Arity.exactly_one(),
+                    greedy=False,
+                    preferred_name="c",
+                    long_names=(),
+                    short_names=("c",),
+                ),
+            },
+        )
+        config = ParserConfiguration(allow_inline_values_without_equals=True)
+
+        result = parse_command_line_args(spec, ["-abcvalue"], config)
+
+        assert result.options["all"] is True
+        assert result.options["build"] is True
+        assert result.options["config"] == "value"
+
+    def test_short_option_inline_value_starting_with_hyphen(self):
+        spec = CommandSpecification(
+            name="test",
+            options={
+                "value": ValueOptionSpecification(
+                    name="value",
+                    arity=Arity.exactly_one(),
+                    greedy=False,
+                    preferred_name="v",
+                    long_names=(),
+                    short_names=("v",),
+                    allow_negative_numbers=True,
+                ),
+            },
+        )
+        config = ParserConfiguration(
+            allow_inline_values_without_equals=True,
+            allow_negative_numbers=True,
+        )
+
+        result = parse_command_line_args(spec, ["-v", "-42"], config)
+
+        assert result.options["value"] == "-42"
+
+    def test_short_option_with_numeric_inline_value(self):
+        spec = CommandSpecification(
+            name="test",
+            options={
+                "level": ValueOptionSpecification(
+                    name="level",
+                    arity=Arity.exactly_one(),
+                    greedy=False,
+                    preferred_name="l",
+                    long_names=(),
+                    short_names=("l",),
+                ),
+            },
+        )
+        config = ParserConfiguration(allow_inline_values_without_equals=True)
+
+        result = parse_command_line_args(spec, ["-l42"], config)
+
+        assert result.options["level"] == "42"
