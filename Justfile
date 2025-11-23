@@ -110,7 +110,7 @@ clean:
 
 # Build the latest documentation
 build-docs: clean
-  FLAGRANT_DOCS_ENV=latest uv run mkdocs build
+  FLAGRANT_DOCS_ENV=latest uv run --group docs mkdocs build
   uv pip freeze > requirements.txt
 
 # Build the documentation for PR preview
