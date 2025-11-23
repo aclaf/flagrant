@@ -17,7 +17,7 @@ class FlagAccumulationMode(str, Enum):
 
     ERROR = "error"
     """
-    Raises a [OptionNotRepeatableError][flagrant.exceptions.OptionNotRepeatableError]
+    Raises an `OptionNotRepeatableError`
     if the flag is specified more than once.
     """
 
@@ -46,7 +46,7 @@ class ValueAccumulationMode(str, Enum):
 
     ERROR = "error"
     """
-    Raises a [OptionNotRepeatableError][flagrant.exceptions.OptionNotRepeatableError]
+    Raises an `OptionNotRepeatableError`
     if the option is specified more than once.
     """
 
@@ -58,7 +58,7 @@ class DictAccumulationMode(str, Enum):
     """
     Merges key-value pairs from all occurrences into a single dictionary.
     The merging behavior is controlled by the
-    [DictMergeStrategy][flagrant.enums.DictMergeStrategy]. (Default)
+    [DictMergeStrategy][flagrant.specification.DictMergeStrategy]. (Default)
     """
 
     FIRST = "first"
@@ -72,7 +72,7 @@ class DictAccumulationMode(str, Enum):
 
     ERROR = "error"
     """
-    Raises a [OptionNotRepeatableError][flagrant.exceptions.OptionNotRepeatableError]
+    Raises an `OptionNotRepeatableError`
     if the option is specified more than once.
     """
 

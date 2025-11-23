@@ -51,6 +51,11 @@ class ParserConfiguration:
             defined aliases. Defaults to True.
         allow_duplicate_list_indices: If True, allows dictionary options to specify
             the same list index multiple times. Defaults to False.
+        allow_inline_values_without_equals: If True, allows long and short options
+            to accept values directly attached without an equals sign or space,
+            using prefix matching for long options and unrecognized character
+            detection for short options. Examples: `--outputfile.txt`,
+            `-ofilename.txt`. Defaults to False.
         allow_negative_numbers: If True, allows values that look like negative
             numbers (e.g., "-5") to be parsed as values instead of options.
             Defaults to True.
@@ -94,8 +99,8 @@ class ParserConfiguration:
         max_argument_file_depth: The maximum number of nested argument files
             allowed to prevent infinite recursion. Defaults to 5.
         merge_strategy: The default strategy for merging dictionaries when
-            [DictAccumulationMode.MERGE][flagrant.enums.DictAccumulationMode.MERGE]
-            is used. See [DictMergeStrategy][flagrant.enums.DictMergeStrategy].
+            [DictAccumulationMode.MERGE][flagrant.specification.DictAccumulationMode.MERGE]
+            is used. See [DictMergeStrategy][flagrant.specification.DictMergeStrategy].
             Defaults to `DEEP`.
         minimum_abbreviation_length: The minimum number of characters required
             for an abbreviated option or subcommand. Defaults to 1.
@@ -107,7 +112,7 @@ class ParserConfiguration:
             Defaults to "-".
         strict_structure: If True, enforces strict structural rules during
             dictionary parsing. Defaults to True.
-        strict_options_before_positionals: If True, all positional arguments must
+        strict_posix_options: If True, all positional arguments must
             appear after all options. If False, they can be interspersed.
             Defaults to False.
         trailing_arguments_separator: The string that signifies the end of options;

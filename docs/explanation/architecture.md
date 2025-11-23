@@ -1,20 +1,93 @@
 # Architecture
 
+--8<-- "unreleased.md"
+
+## Table of contents
+
+- [Architecture](#architecture)
+  - [Table of contents](#table-of-contents)
+  - [Introduction](#introduction)
+    - [What is Flagrant?](#what-is-flagrant)
+    - [Core purpose and scope](#core-purpose-and-scope)
+    - [Position as parsing engine vs full framework](#position-as-parsing-engine-vs-full-framework)
+    - [Target audience for this document](#target-audience-for-this-document)
+  - [Architecture at a glance](#architecture-at-a-glance)
+  - [Design philosophy](#design-philosophy)
+    - [Specification-driven approach](#specification-driven-approach)
+    - [Separation of concerns (syntax vs semantics)](#separation-of-concerns-syntax-vs-semantics)
+    - [Immutability throughout](#immutability-throughout)
+    - [Data-oriented architecture](#data-oriented-architecture)
+    - [Zero runtime dependencies (except typing-extensions)](#zero-runtime-dependencies-except-typing-extensions)
+    - [Type safety and static analysis](#type-safety-and-static-analysis)
+  - [Architectural principles](#architectural-principles)
+    - [Parser architecture](#parser-architecture)
+    - [Immutable specifications](#immutable-specifications)
+    - [Single-pass parsing](#single-pass-parsing)
+    - [Fail-fast validation](#fail-fast-validation)
+    - [Layered architecture](#layered-architecture)
+  - [Module organization](#module-organization)
+    - [Root-level modules](#root-level-modules)
+    - [Parser subsystem (`flagrant.parser`)](#parser-subsystem-flagrantparser)
+    - [Specification subsystem (`flagrant.specification`)](#specification-subsystem-flagrantspecification)
+  - [Specification model](#specification-model)
+    - [Command specification hierarchy](#command-specification-hierarchy)
+    - [Option specifications (Flag, Value, Dict)](#option-specifications-flag-value-dict)
+    - [Positional specifications](#positional-specifications)
+    - [Arity concept](#arity-concept)
+    - [Accumulation modes](#accumulation-modes)
+      - [Accumulation overview](#accumulation-overview)
+      - [Accumulation modes and value shapes](#accumulation-modes-and-value-shapes)
+    - [Why immutable dataclasses](#why-immutable-dataclasses)
+  - [Parser subsystem](#parser-subsystem)
+    - [Single-pass algorithm](#single-pass-algorithm)
+      - [Dictionary options overview](#dictionary-options-overview)
+    - [Argument file preprocessing](#argument-file-preprocessing)
+    - [Configuration](#configuration)
+    - [Parse results](#parse-results)
+  - [Data flow](#data-flow)
+    - [Parsing flow](#parsing-flow)
+  - [Configuration system](#configuration-system)
+    - [Three-tier configuration](#three-tier-configuration)
+    - [Override precedence](#override-precedence)
+    - [Why this design](#why-this-design)
+  - [Error handling](#error-handling)
+    - [Construction-time errors](#construction-time-errors)
+    - [Parse-time errors](#parse-time-errors)
+    - [Error context](#error-context)
+  - [Extension points](#extension-points)
+  - [Performance characteristics](#performance-characteristics)
+    - [Parser](#parser)
+  - [Type safety](#type-safety)
+    - [Comprehensive type hints](#comprehensive-type-hints)
+    - [Static analysis benefits](#static-analysis-benefits)
+  - [Dependencies](#dependencies)
+    - [Runtime](#runtime)
+    - [Development](#development)
+  - [Testing strategy](#testing-strategy)
+    - [Why minimal dependencies](#why-minimal-dependencies)
+  - [Relationship to Aclaf](#relationship-to-aclaf)
+    - [What Flagrant provides](#what-flagrant-provides)
+    - [What Aclaf provides](#what-aclaf-provides)
+    - [Why separated](#why-separated)
+  - [Glossary](#glossary)
+  - [See also](#see-also)
+
+---
+
 ## Introduction
 
-Flagrant is a specification-driven command-line parser and completion generator designed as a foundation for building CLI programs in Python 3.10+. This document explains Flagrant's architecture, design decisions, and internal organization.
+Flagrant is a specification-driven command-line parser designed as a foundation for building CLI programs in Python 3.10+. This document explains Flagrant architecture, design decisions, and internal organization.
 
 ### What is Flagrant?
 
-Flagrant is a low-level parsing and completion engine that transforms command-line arguments into structured data. It accepts a declarative specification of your CLI's structure and produces parsed results as pure data structures containing string values. Flagrant does NOT perform type conversion, validation, command execution, or help generation—these are responsibilities of higher-level frameworks like Aclaf.
+Flagrant is a low-level parsing engine that transforms command-line arguments into structured data. It accepts a declarative specification of your CLI's structure and produces parsed results as pure data structures containing string values. Flagrant does NOT perform type conversion, validation, command execution, help generation, or shell completion generation—these are responsibilities of higher-level frameworks like Aclaf.
 
 ### Core purpose and scope
 
-Flagrant's responsibilities are strictly limited to:
+Flagrant responsibilities are strictly limited to:
 
 - **Syntactic parsing**: Classifying tokens as options, positionals, or subcommands
 - **Value extraction**: Consuming the correct number of values based on arity
-- **Completion generation**: Suggesting valid candidates for partial input
 - **Error identification**: Detecting syntactic problems and providing rich context
 
 Flagrant explicitly does NOT handle:
@@ -23,6 +96,7 @@ Flagrant explicitly does NOT handle:
 - **Type conversion**: Converting strings to integers, dates, paths, etc.
 - **Validation**: Checking if values satisfy business rules
 - **Help generation**: Producing usage messages or documentation
+- **Completion generation**: Producing shell-specific completion scripts
 - **Command execution**: Invoking handlers or callbacks
 - **Error presentation**: Rendering error messages for users
 
@@ -50,47 +124,47 @@ Basic familiarity with command-line interfaces, Python dataclasses, and type hin
 
 ## Architecture at a glance
 
-Flagrant's architecture separates syntactic analysis from semantic interpretation:
+Flagrant architecture focuses on syntactic parsing, with Aclaf handling semantic interpretation and presentation:
 
 ```mermaid
 graph TD
     A[Command Specification] --> B[Parser]
-    A --> C[Completer]
-
     D[User Input argv] --> E[Preprocessing]
     E --> B
+    B --> F[ParseResult - Strings Only]
 
-    B --> F[ParseResult]
-    F --> G[Aclaf Type Conversion]
-    G --> H[Aclaf Validation]
-    H --> I[Command Execution]
+    F --> G[Aclaf Framework]
+    G --> H[Type Conversion]
+    G --> I[Validation]
+    G --> J[Help Generation]
+    G --> K[Completion Generation]
+    G --> L[Command Execution]
 
-    J[Partial Input + Cursor] --> C
-    C --> K[CompletionResult]
-    K --> L[Shell Formatter]
-    L --> M[Shell-specific Output]
+    A -.-> G
 
     style B fill:#9f9,stroke:#333,stroke-width:2px
-    style C fill:#9f9,stroke:#333,stroke-width:2px
-    style G fill:#9cf,stroke:#333
-    style H fill:#9cf,stroke:#333
-    style I fill:#9cf,stroke:#333
+    style F fill:#9f9,stroke:#333,stroke-width:2px
+    style G fill:#9cf,stroke:#333,stroke-width:2px
+    style H fill:#ff9,stroke:#333
+    style I fill:#ff9,stroke:#333
+    style J fill:#ff9,stroke:#333
+    style K fill:#ff9,stroke:#333
+    style L fill:#ff9,stroke:#333
 ```
 
 **Key flows:**
 
 - **Parsing:** argv → Preprocessing (argument files) → Parser → ParseResult (strings only)
-- **Completion:** Partial input → Completer → CompletionResult → Formatter → Shell output
-- **Shared:** Both use same CommandSpecification for consistent behavior
-- **Boundaries:** Flagrant stops at structured strings; Aclaf handles types and semantics
+- **Aclaf consumes:** ParseResult + Specification → Type conversion, validation, help, completions, execution
+- **Boundaries:** Flagrant stops at structured strings; Aclaf handles all semantics and presentation
 
 ## Design philosophy
 
-Flagrant's architecture emerges from a set of core design principles that guide every implementation decision.
+Flagrant architecture emerges from a set of core design principles that guide every implementation decision.
 
 ### Specification-driven approach
 
-The entire CLI structure is declared upfront as an immutable specification tree. This specification serves as the single source of truth for both parsing and completion, ensuring they never diverge. By making specifications explicit data structures rather than implicit in code, Flagrant enables:
+The entire CLI structure is declared upfront as an immutable specification tree. By making specifications explicit data structures rather than implicit in code, Flagrant enables:
 
 - Static analysis of CLI structure before parsing begins
 - Serialization of CLI definitions for documentation generation
@@ -162,17 +236,15 @@ For example, option values have precise union types (`FlagOptionValue | ValueOpt
 
 ## Architectural principles
 
-### Separation of parsing and completion
+### Parser architecture
 
-Parsing and completion are fundamentally different operations that share a specification model but operate independently:
+Flagrant parser is designed for correctness, predictability, and performance:
 
-**Parsing** is strict and deterministic. Given complete input, it either succeeds with a valid `ParseResult` or fails with a detailed error. The parser enforces all rules: unknown options are errors, arity violations are errors, invalid syntax is an error.
+**Strict and deterministic**: Given complete input, the parser either succeeds with a valid `ParseResult` or fails with a detailed error. The parser enforces all rules: unknown options are errors, arity violations are errors, invalid syntax is an error. This strictness helps catch configuration errors early and provides clear feedback when arguments don't match expectations.
 
-**Completion** is permissive and forgiving. Given partial or invalid input, it makes a best-effort attempt to suggest valid candidates. Unknown options are ignored, incomplete tokens trigger suggestions, syntax errors are tolerated. The completer's goal is to help the user, not to validate correctness.
+**Single-pass processing**: The parser makes exactly one left-to-right pass through the argument vector, classifying each token and consuming values as it goes. The parser uses no backtracking, no lookahead beyond immediate value consumption, and no speculative parsing. This provides O(n) complexity and predictable performance.
 
-Despite these differences, both subsystems consume the same `CommandSpecification` and respect the same `Configuration`. This ensures that completions suggest exactly what the parser would accept. However, each subsystem has its own entry point (Parser vs Completer), its own result type (ParseResult vs CompletionResult), and its own configuration specialization (ParserConfiguration vs CompleterConfiguration).
-
-This separation allows independent optimization. The parser can use fast single-pass algorithms without maintaining candidate lists. The completer can use looser heuristics without affecting parse correctness. Neither subsystem is burdened by the other's concerns.
+**Fail-fast validation**: Specifications and configurations are validated at construction time, not during parsing. If a `CommandSpecification` has problems, this is detected when the specification is created, raising a `SpecificationError`. All parse-time errors represent user input problems, not specification bugs.
 
 ### Immutable specifications
 
@@ -234,26 +306,16 @@ Flagrant is the bottom layer of a CLI stack:
 
 ## Module organization
 
-Flagrant's codebase is organized into three layers: root-level public API, two major subsystems (parsing and completions), and internal implementation details.
+Flagrant codebase is organized into three main areas: root-level modules, the parser subsystem, and the specification subsystem.
 
 ### Root-level modules
 
-**`specification.py` - Specification data structures**
-
-Defines the complete specification model as a hierarchy of immutable dataclasses:
-
-- `CommandSpecification`: Root of the specification tree, containing options, positionals, and subcommands
-- `OptionSpecification` hierarchy: `FlagOptionSpecification`, `ValueOptionSpecification`, `DictOptionSpecification`
-- `PositionalSpecification`: Positional argument specifications
-- `ParameterSpecification`: Base class providing common `name` attribute
-
-These dataclasses are the primary input to both parser and completer, defining the entire CLI structure.
+These modules provide shared types and configuration used throughout Flagrant:
 
 **`types.py` - Core type definitions**
 
 Defines fundamental types used throughout Flagrant:
 
-- `Arity`: NamedTuple representing min/max value constraints
 - Type aliases for result values: `FlagOptionValue`, `ValueOptionValue`, `DictOptionValue`, `PositionalValue`, `OptionValue`
 - `ParseResultDict`: TypedDict for serialized parse results
 
@@ -261,62 +323,45 @@ These types establish the vocabulary for Flagrant's type system.
 
 **`enums.py` - Enumeration types**
 
-Defines string enums for configuration modes:
+Defines string enums for top-level configuration:
 
 - `ArgumentFileFormat`: LINE vs SHELL parsing modes
-- `FlagAccumulationMode`: FIRST, LAST, COUNT, ERROR
-- `ValueAccumulationMode`: FIRST, LAST, APPEND, EXTEND, ERROR
-- `DictAccumulationMode`: MERGE, FIRST, LAST, APPEND, ERROR
-- `DictMergeStrategy`: SHALLOW vs DEEP merging
 
-String enums enable clear, self-documenting configuration while being JSON-serializable.
+Additional enums are defined in subsystem-specific modules.
 
-**`configuration.py` - Shared configuration**
+**`configuration.py` - Parser configuration**
 
-Defines the base `Configuration` dataclass containing all settings that control parsing and completion behavior:
+Defines the `ParserConfiguration` dataclass containing all settings that control parsing behavior:
 
 - Option and command matching rules (case sensitivity, abbreviations, underscore conversion)
 - Syntactic elements (prefixes, separators, escape characters)
-- Feature toggles (argument files, negative numbers, sparse lists)
+- Feature toggles (argument files, negative numbers)
 - Limits (max argument file depth, minimum abbreviation length)
 
-This serves as the base class for `ParserConfiguration` and `CompleterConfiguration`, both of which currently just specialize the type without adding fields (they may diverge in the future).
+**`defaults.py` - System constants**
 
-**`constants.py` - System constants**
-
-Defines default values and common arity instances:
+Defines default values for configuration options:
 
 - Default separators, prefixes, and escape characters (e.g., `DEFAULT_LONG_NAME_PREFIX = "--"`)
 - Default patterns (e.g., `DEFAULT_NEGATIVE_NUMBER_PATTERN`)
-- Common arity instances: `EXACTLY_ONE_ARITY`, `AT_LEAST_ONE_ARITY`, `AT_MOST_ONE_ARITY`, `ZERO_OR_MORE_ARITY`
 
-Centralizing constants ensures consistency and makes changing defaults a single-line modification.
+Centralizing defaults ensures consistency and makes changing defaults a single-line modification.
 
 **`exceptions.py` - Error hierarchy**
 
-Defines the exception hierarchy for Flagrant:
+Defines the base exception hierarchy for Flagrant:
 
 - `FlagrantError`: Base exception for all Flagrant errors
-- `ConfigurationError`: Base for configuration problems (construction-time)
-  - `ParserConfigurationError`: Invalid parser configuration
-  - `CompletionConfigurationError`: Invalid completer configuration
-- `SpecificationError`: Invalid specification (construction-time)
-- `ParseError`: Problem with user input (runtime)
-- `CompletionError`: Problem during completion generation (runtime, usually not user-facing)
 
-This hierarchy allows precise error handling and makes error sources immediately clear.
+Subsystems define their own specific exceptions (e.g., `ParserError`, `SpecificationError`).
 
-**`protocols.py` - Protocol definitions for extensibility**
+### Parser subsystem (`flagrant.parser`)
 
-Currently minimal, this module defines structural typing protocols for extensions. As of now, completion formatters use protocols defined in `completions._protocols`, but future extensions (like custom validators or transformers) would define their protocols here.
+The parser subsystem transforms argument vectors into structured results.
 
-### Parsing subsystem (`flagrant.parsing`)
+**Core parser implementation**
 
-The parsing subsystem transforms argument vectors into structured results.
-
-**`_parser.py` - Core parser implementation**
-
-Contains the `Parser` class and the core parsing algorithm:
+Contains the core parsing algorithm:
 
 - Argument file preprocessing (@file expansion with recursion limits)
 - Token classification (long option, short option, positional, subcommand, separator)
@@ -327,9 +372,9 @@ Contains the `Parser` class and the core parsing algorithm:
 
 The parser uses a single-pass algorithm with no backtracking. It maintains minimal state (current option being populated, positional accumulator) and produces a `ParseResult` directly.
 
-**`_result.py` - Parse result data structures**
+**Parse result data structures**
 
-Defines `ParseResult`, the output of parsing:
+`ParseResult` is the output of parsing:
 
 - `command`: The matched command name
 - `args`: The original argument vector
@@ -337,7 +382,7 @@ Defines `ParseResult`, the output of parsing:
 - `positionals`: Dictionary mapping positional names to their values
 - `subcommand`: Nested `ParseResult` for subcommand, if present
 
-`ParseResult` provides rich traversal methods:
+`ParseResult` provides rich traversal methods for working with subcommand hierarchies:
 
 - `__iter__`: Iterate through command hierarchy root-to-leaf
 - `path`: Full command path as tuple (e.g., `("git", "remote", "add")`)
@@ -345,89 +390,96 @@ Defines `ParseResult`, the output of parsing:
 - `all_options`/`all_positionals`: Merged options/positionals from entire hierarchy
 - `find_option`/`find_positional`: Search from leaf to root
 
-These methods make working with subcommand hierarchies convenient without coupling result structure to application logic.
+**Parser exceptions**
 
-**`_configuration.py` - Parser-specific configuration**
+Parser-specific exceptions include:
 
-Defines `ParserConfiguration`, which currently inherits all fields from `Configuration` without additions. This separate type exists to allow future parser-specific settings without affecting the completer.
+- `ParseError` and subclasses: Problems with user input (runtime)
+  - Includes rich context: argv snapshot, argument index, subcommand path
+  - Enables precise error rendering by higher layers
 
-The parser configuration controls:
+**Public API**
 
-- When to treat arguments as options vs values (negative numbers, trailing separator)
-- How to expand argument files (format, recursion depth)
-- How to match options and commands (case sensitivity, abbreviations)
-- How to handle repeated parameters (accumulation modes)
+The public parser API exports:
 
-### Completion subsystem (`flagrant.completions`)
+- `parse_command_line_args()`: High-level parsing function
+- `ParseResult`: Parse result dataclass
 
-The completion subsystem generates shell-specific completion scripts and suggestions.
+### Specification subsystem (`flagrant.specification`)
 
-**`_completer.py` - Core completer implementation**
+The specification subsystem defines CLI structure through immutable dataclasses.
 
-Contains the `Completer` class and completion logic:
+**Command specifications**
 
-- Partial input analysis (identifying incomplete tokens, cursor position context)
-- Candidate generation (all valid options, positionals, subcommands at current position)
-- Filtering based on prefix matching
-- Ranking by relevance
-- Context-aware suggestions (e.g., only suggest options valid for current subcommand)
+`CommandSpecification` is the root of the specification tree:
 
-Unlike the parser, the completer is permissive. It tolerates syntax errors, ignores unknown options, and makes best-effort guesses about user intent. The goal is helpfulness, not correctness.
+- Contains options, positionals, and subcommands
+- Forms hierarchical structure for nested commands
+- Immutable dataclass with validation
 
-**`_result.py` - Completion result data structures**
+**Option specifications**
 
-Defines `CompletionResult`, the output of completion:
+The option specification hierarchy includes:
 
-- Candidate suggestions with descriptions
-- Current context (active subcommand, parsed-so-far options)
-- Metadata for shell-specific formatting
+- `FlagOptionSpecification`: Boolean flags (e.g., `--verbose`)
+- `ValueOptionSpecification`: Options accepting values (e.g., `--output file.txt`)
+- `DictOptionSpecification`: Options accepting key=value pairs (e.g., `--config key=value`)
 
-The result structure is designed to be consumed by formatters that produce shell-specific completion scripts.
+Each option type includes:
 
-**`_configuration.py` - Completer-specific configuration**
+- Long and short names
+- Arity constraints
+- Accumulation modes
+- Negation prefixes (for flags)
 
-Defines `CompleterConfiguration`, which currently inherits all fields from `Configuration` without additions. Future completer-specific settings might include:
+**Arity types**
 
-- Fuzzy matching thresholds
-- Maximum number of suggestions
-- Custom ranking algorithms
-- Interactive vs non-interactive completion modes
+Arity-related types include:
 
-**`_protocols.py` - Formatter protocols**
+- `Arity`: NamedTuple representing min/max value constraints
+- Common arity constants: `EXACTLY_ONE`, `AT_LEAST_ONE`, `ZERO_OR_MORE`, etc.
 
-Defines the `CompletionFormatter` protocol:
+**`enums.py` - Accumulation modes**
 
-```python
-class CompletionFormatter(Protocol):
-    @staticmethod
-    def format(result: CompletionResult) -> str: ...
+Defines enums for handling repeated parameters:
 
-    @staticmethod
-    def generate_script(command_name: str) -> str: ...
-```
+- `FlagAccumulationMode`: FIRST, LAST, COUNT, ERROR
+- `ValueAccumulationMode`: FIRST, LAST, APPEND, EXTEND, ERROR
+- `DictAccumulationMode`: MERGE, FIRST, LAST, APPEND, ERROR
+- `DictMergeStrategy`: SHALLOW vs DEEP merging
 
-This protocol allows shell-specific formatters to be implemented independently. Each formatter converts generic `CompletionResult` data into the syntax required by a specific shell.
+**Specification exceptions**
 
-**`_bash.py`, `_fish.py`, `_zsh.py`, `_powershell.py` - Shell formatters**
+Specification-specific exceptions include:
 
-Each module implements `CompletionFormatter` for a specific shell:
+- `SpecificationError` and subclasses: Invalid specifications (construction-time)
+  - Duplicate option names
+  - Invalid arity constraints
+  - Conflicting configurations
 
-- **Bash**: Generates bash-completion-compatible output and setup scripts
-- **Zsh**: Generates zsh completion functions using the `_arguments` framework
-- **Fish**: Generates fish completion commands using the `complete` builtin
-- **PowerShell**: Generates PowerShell completion scripts using `Register-ArgumentCompleter`
+**Specification validation**
 
-These formatters encapsulate shell-specific syntax and conventions, keeping the core completer shell-agnostic. New shells can be supported by adding new formatter modules without modifying the completer.
+Validation logic for specifications includes:
 
-### Internal (`flagrant._internal`)
+- Duplicate name detection
+- Arity constraint validation
+- Configuration consistency checks
 
-The `_internal` package contains implementation details not part of Flagrant's public API:
+**Specification helpers**
 
-- Helper functions used internally by parser or completer
-- Validation logic for specifications and configurations
-- Internal data structures not exposed to users
+Utility functions for working with specifications:
 
-Modules in `_internal` can change without affecting Flagrant's public API guarantees. Users should never import from `flagrant._internal` directly.
+- Specification traversal
+- Name resolution
+- Lookup tables
+
+**Public API**
+
+The public specification API exports:
+
+- `CommandSpecification`
+- Option specifications: `FlagOptionSpecification`, `ValueOptionSpecification`, `DictOptionSpecification`
+- Accumulation modes and enums
 
 ## Specification model
 
@@ -698,7 +750,7 @@ Values: ["main.py", "arg1", "arg2", "arg3"]
 Result: file="main.py", args=("arg1", "arg2", "arg3")
 ```
 
-Grouping happens after option processing to handle interspersed options correctly (unless `strict_options_before_positionals=True`).
+Grouping happens after option processing to handle interspersed options correctly (unless `strict_posix_options=True`).
 
 **5. Subcommand handling**
 
@@ -846,170 +898,9 @@ ParseResult(
 
 Consumers can safely assume the result structure matches the specification's arity without additional validation.
 
-## Completion subsystem
-
-The completion subsystem generates shell completion suggestions for partial command-line input. Unlike parsing, completion is permissive and best-effort.
-
-### Permissive vs strict
-
-**Why completion differs from parsing**:
-
-Parsing operates on complete, committed input. The user has pressed Enter and expects either success or a clear error. Parsing is strict: unknown options are errors, arity violations are errors, invalid syntax is an error.
-
-Completion operates on incomplete, speculative input. The user is actively typing and expects helpful suggestions, not errors. Completion is permissive: unknown options are ignored, incomplete tokens trigger suggestions, syntax errors are tolerated.
-
-Example:
-
-```python
-# Parsing (strict)
-parse("command --unkno") → ParseError: unknown option '--unkno'
-
-# Completion (permissive)
-complete("command --unkno") → ["--unknown-option", "--unknown-flag"]  # Suggestions
-```
-
-**Graceful degradation**: If the completer encounters something it doesn't understand, it falls back to safe defaults (suggest all options, suggest no positionals) rather than failing. The goal is to always provide some suggestions, even if they're not perfect.
-
-**Completion as permissive analysis (non-throwing):**
-
-!!! note "Non-throwing resilient completion"
-    Completion runs in a non-throwing mode that gracefully handles incomplete or malformed input, ensuring shell completion never interrupts the user's workflow:
-
-    - Partial tokens are analyzed for context
-    - Syntax errors don't halt completion
-    - Returns empty candidate lists on failure (never crashes)
-    - Diagnostic logging for debugging, but silent to users
-
-    This resilient analysis ensures completion works even when input is incomplete or ambiguous, prioritizing helpfulness over correctness.
-
-**@file prefix completion (paths only, no expansion):**
-
-!!! tip "Argument file completion"
-    When a token begins with the configured `argument_file_prefix` (default `@`), completion suggests file paths:
-
-    - Suggests file paths from current directory
-    - Preserves prefix in suggestions (`@config.yaml`)
-    - Does NOT expand files (expansion is parser's responsibility)
-    - Delegates to native shell file completion when available
-
-    This allows users to reference argument files interactively while keeping expansion separate from completion.
-
-### Shell support
-
-Different shells have different completion mechanisms and syntaxes. Flagrant abstracts these differences through a protocol-based architecture.
-
-**Protocol-based formatter architecture**: The `CompletionFormatter` protocol defines the interface all formatters must implement:
-
-```python
-class CompletionFormatter(Protocol):
-    @staticmethod
-    def format(result: CompletionResult) -> str:
-        """Convert CompletionResult to shell-specific completion output."""
-        ...
-
-    @staticmethod
-    def generate_script(command_name: str) -> str:
-        """Generate shell-specific completion setup script."""
-        ...
-```
-
-This protocol allows new shells to be supported without modifying the core completer. Each formatter encapsulates shell-specific knowledge.
-
-**Bash, Zsh, Fish, PowerShell implementations**:
-
-- **Bash** (`_bash.py`): Generates output compatible with bash-completion and programmable completion. Produces `COMPREPLY` array assignments for bash completion functions.
-
-- **Zsh** (`_zsh.py`): Generates zsh completion functions using the `_arguments` framework. Leverages zsh's rich completion features like descriptions and grouping.
-
-- **Fish** (`_fish.py`): Generates `complete` commands for fish's declarative completion system. Fish completions are event-driven and registered globally.
-
-- **PowerShell** (`_powershell.py`): Generates `Register-ArgumentCompleter` scripts for PowerShell's completion system. Uses PowerShell's object-based completion result format.
-
-**Format-specific output**: Each formatter converts the generic `CompletionResult` into the syntax expected by its shell:
-
-```python
-# Generic result
-CompletionResult(candidates=[
-    Candidate(value="--verbose", description="Enable verbose output"),
-    Candidate(value="--output", description="Output file"),
-])
-
-# Bash output
---verbose
---output
-
-# Zsh output
---verbose[Enable verbose output]
---output[Output file]
-
-# Fish output
---verbose\tEnable verbose output
---output\tOutput file
-```
-
-### Context analysis
-
-The completer analyzes partial input to determine what kind of suggestions are appropriate.
-
-**Incomplete token detection**: The completer identifies tokens that are being typed but not finished:
-
-```python
-complete("command --out")
-           ↑ incomplete token "--out"
-Suggests: ["--output", "--output-file"]
-```
-
-Incomplete tokens are detected by cursor position (if available) or by the absence of a trailing space in the input.
-
-**Candidate generation**: Based on the current context (subcommand, previous options), the completer generates all valid candidates:
-
-- If typing an option: all option long/short names not already provided
-- If typing a value: completion depends on option type (usually no suggestions for generic strings)
-- If typing a subcommand: all subcommand names and aliases at this level
-
-**Filtering and ranking**: Generated candidates are filtered by prefix match against the incomplete token:
-
-```python
-Candidates: ["--verbose", "--output", "--debug"]
-Incomplete token: "--o"
-Filtered: ["--output"]
-```
-
-Candidates are ranked by relevance (exact prefix match, fuzzy match, recency) to present the most likely suggestions first.
-
-### Configuration
-
-Completion configuration controls completion behavior:
-
-**Shell-specific settings**: Each shell formatter may respect different configuration options. For example:
-
-- Bash might use `case_sensitive_options` to control case-insensitive completion
-- Zsh might use `allow_abbreviated_options` to complete abbreviated forms
-- Fish might use custom configuration for description formatting
-
-**Match modes**: Configuration can specify how candidates are matched:
-
-- Prefix matching: Candidate must start with typed text
-- Substring matching: Candidate can contain typed text anywhere
-- Fuzzy matching: Candidate matches with gaps allowed
-
-**Performance tuning**: Configuration can limit the number of suggestions or enable caching to ensure completion remains fast (<100ms) even for large CLI specifications.
-
-**Parser configuration synchronization (name resolution parity):**
-
-!!! important "Configuration consistency"
-    Completion respects parser configuration to keep behavior consistent with parsing. This name resolution parity ensures users see completion suggestions that match exactly what the parser will accept:
-
-    - **Abbreviations:** If `allow_abbreviated_options=True`, completion suggests abbreviated forms
-    - **Case sensitivity:** Respects `case_sensitive_options` setting
-    - **Underscore/dash normalization:** Applies `convert_underscores` rules (e.g., `--foo-bar` matches `--foo_bar`)
-    - **Argument file prefix:** Uses same `argument_file_prefix` as parser
-
-    This configuration synchronization prevents frustrating mismatches where completion suggests options the parser rejects or vice versa.
-
 ## Data flow
 
-Understanding how data flows through Flagrant helps clarify the separation between parsing and completion.
+Understanding how data flows through Flagrant clarifies its role as a parsing engine:
 
 ### Parsing flow
 
@@ -1045,40 +936,11 @@ graph TD
 
 9. **Strings, No Conversion**: Result contains only strings—no integers, booleans, dates, etc.
 
-### Completion flow
-
-```mermaid
-graph TD
-    A[Partial Input + Cursor Position] --> B[Completer + Specification + Configuration]
-    B --> C[Context Analysis]
-    C --> D[Candidate Generation]
-    D --> E[Filtering by Prefix]
-    E --> F[CompletionResult]
-    F --> G[Shell Formatter: Bash/Zsh/Fish/PowerShell]
-    G --> H[Shell-Specific Output]
-```
-
-**Step-by-step**:
-
-1. **Partial Input + Cursor Position**: Incomplete command line: `"git remote --v"` with cursor at end
-
-2. **Completer + Specification + Configuration**: Completer initialized with specification and configuration
-
-3. **Context Analysis**: Determine current subcommand (`remote`), previous options, and incomplete token (`--v`)
-
-4. **Candidate Generation**: Generate all valid candidates for current context (all remote-level options)
-
-5. **Filtering by Prefix**: Filter candidates to those matching `--v` (e.g., `--verbose`)
-
-6. **CompletionResult**: Generic result with candidate list and metadata
-
-7. **Shell Formatter**: Format result for specific shell (Bash, Zsh, Fish, PowerShell)
-
-8. **Shell-Specific Output**: Final output in shell's expected format
+The `ParseResult` is then consumed by higher-level frameworks (like Aclaf) for semantic interpretation, type conversion, validation, help generation, and command execution.
 
 ## Configuration system
 
-Flagrant's configuration system uses a three-tier precedence model to balance simplicity and flexibility.
+Flagrant configuration system uses a three-tier precedence model to balance simplicity and flexibility.
 
 ### Three-tier configuration
 
@@ -1096,7 +958,7 @@ DEFAULT_MINIMUM_ABBREVIATION_LENGTH = 3
 
 These defaults cover common CLI conventions and work for most use cases without any configuration.
 
-**2. Global configuration (ParserConfiguration, CompleterConfiguration)**
+**2. Global configuration (ParserConfiguration)**
 
 The middle tier allows customizing behavior for an entire CLI:
 
@@ -1110,7 +972,7 @@ config = ParserConfiguration(
 parser = Parser(specification, config)
 ```
 
-Global configuration is specified once when creating a parser or completer and applies to all options and commands.
+Global configuration is specified once when creating a parser and applies to all options and commands.
 
 Example:
 
@@ -1213,12 +1075,12 @@ CommandSpecification(
 # Raises: SpecificationError: Duplicate long option name 'verbose'
 ```
 
-**Configuration conflicts**: `ParserConfigurationError` or `CompletionConfigurationError` is raised for invalid configuration:
+**Configuration conflicts**: `ParserConfigurationError` is raised for invalid configuration:
 
 - Negative `max_argument_file_depth`
 - Empty prefix strings
 - Invalid regex patterns (e.g., for `negative_number_pattern`)
-- Conflicting settings (e.g., `strict_options_before_positionals=True` with interspersed mode)
+- Conflicting settings (e.g., `strict_posix_options=True` with interspersed mode)
 
 **Caught before parsing**: All construction-time errors are raised during object construction, before any parsing begins. This fail-fast approach ensures that if a parser is successfully created, the specification and configuration are valid.
 
@@ -1259,23 +1121,9 @@ parse(["command", "--config", "keyvalue"])
 
 This context enables higher layers (like Aclaf) to render rich, helpful error messages with highlighting and suggestions without needing to re-parse or re-analyze the input.
 
-### Completion errors
-
-Completion errors are different from parse errors because they are diagnostic, not user-facing.
-
-**Diagnostic only (not user-facing)**: `CompletionError` indicates the completer encountered a problem, but this error is typically logged for debugging rather than shown to users. Completion should degrade gracefully rather than fail visibly.
-
-**Graceful fallback**: When the completer cannot generate accurate suggestions (e.g., due to ambiguous context or unrecognized partial input), it falls back to safe defaults:
-
-- Suggest all options if option context cannot be determined
-- Suggest no positionals if positional context is unclear
-- Suggest all subcommands if subcommand context is ambiguous
-
-Users see fewer suggestions rather than an error, preserving the interactive experience.
-
 ### Error context
 
-Flagrant's error context is designed to enable higher layers to provide excellent error messages without duplicating parsing logic.
+Flagrant error context is designed to enable higher layers to provide excellent error messages without duplicating parsing logic.
 
 **argv snapshot**: The complete original argument vector, unchanged by preprocessing:
 
@@ -1317,56 +1165,13 @@ All the information needed for this rendering is in the `ParseError` context—n
 
 ## Extension points
 
-Flagrant is intentionally limited in scope, but it does provide a few carefully chosen extension points.
+Flagrant is intentionally limited in scope and avoids extensibility hooks.
 
-### Completion formatters
+**Focused scope**: The Flagrant parser handles syntactic parsing only. Extension points for semantics (type conversion, validation) would blur the boundary between Flagrant and higher layers, making the system more complex and harder to reason about.
 
-The `CompletionFormatter` protocol is the primary extension point.
+**Clear boundaries**: Flagrant maintains a clean contract: it parses according to a specification and produces string-based results. Higher layers interpret those results. This clarity makes testing, debugging, and maintenance much easier.
 
-**Protocol-based design**: Any type implementing the `CompletionFormatter` protocol can format completion results:
-
-```python
-class CompletionFormatter(Protocol):
-    @staticmethod
-    def format(result: CompletionResult) -> str: ...
-
-    @staticmethod
-    def generate_script(command_name: str) -> str: ...
-```
-
-This structural typing allows custom formatters without inheritance or registration. If a type has these methods with the right signatures, it's a valid formatter.
-
-**Custom shell support**: To support a new shell, implement the protocol:
-
-```python
-class NushellFormatter:
-    @staticmethod
-    def format(result: CompletionResult) -> str:
-        # Convert result to Nushell completion format
-        ...
-
-    @staticmethod
-    def generate_script(command_name: str) -> str:
-        # Generate Nushell completion setup script
-        ...
-
-# Use it
-completer = Completer(specification, config)
-result = completer.complete(partial_input)
-output = NushellFormatter.format(result)
-```
-
-No changes to Flagrant core are needed—just implement the protocol.
-
-### Why limited extension points
-
-Flagrant deliberately avoids extensibility for parsing logic, validation, or type conversion.
-
-**Focused scope**: Flagrant's job is syntactic parsing and completion generation. Extension points for semantics (type conversion, validation) would blur the boundary between Flagrant and higher layers, making the system more complex and harder to reason about.
-
-**Clear boundaries**: By limiting extensions to shell-specific formatting, Flagrant maintains a clean contract: it parses and completes according to a specification, and higher layers interpret the results. This clarity makes testing, debugging, and maintenance much easier.
-
-**Semantic extension happens in Aclaf**: Higher-level frameworks like Aclaf provide extension points for type conversion, validation, command execution, and help generation. This separation of concerns allows each layer to evolve independently without coupling their extension mechanisms.
+**Semantic extension happens in Aclaf**: Higher-level frameworks like Aclaf provide extension points for type conversion, validation, command execution, help generation, and completion generation. This separation of concerns allows each layer to evolve independently without coupling their extension mechanisms.
 
 If Flagrant provided hooks for custom parsers, validators, or converters, it would become a framework rather than a library, losing its focus and simplicity.
 
@@ -1396,21 +1201,7 @@ Typical performance on modern hardware:
 - Medium commands (100-500 arguments): <10ms
 - Large commands (1000+ arguments): <100ms
 
-### Completer
-
-**O(n) context analysis**: Analyzing the partial input to determine context (current subcommand, previous options) is O(n) where n is the number of tokens in the partial input. This is essentially a partial parse with a more permissive classification algorithm.
-
-**O(m) candidate filtering (m = candidate count)**: Generating candidates is O(m) where m is the total number of options, positionals, and subcommands at the current level (typically 10-100). Filtering candidates by prefix match is also O(m). Even for very large CLI specifications with hundreds of options, this is fast because m is bounded by the specification size, not the input size.
-
-**Designed for <100ms interactive latency**: Completion is interactive—users expect suggestions to appear instantly as they type. Flagrant's completer is designed to complete within 100ms even for large CLI specifications (hundreds of options and subcommands). This ensures a responsive user experience without noticeable lag.
-
-Typical performance:
-
-- Small CLIs (10-20 options): <10ms
-- Medium CLIs (50-100 options): <50ms
-- Large CLIs (200+ options): <100ms
-
-For extremely large CLIs (thousands of options), caching and indexing strategies may be needed, but this is outside Flagrant's scope—the specification should be simplified or split into multiple commands.
+For extremely large argument vectors, preprocessing (argument file expansion) may dominate parsing time, but this is typically not a concern for interactive CLI usage.
 
 ## Type safety
 
@@ -1470,7 +1261,7 @@ For example, changing `ParseResult.options` from `dict[str, OptionValue]` to a c
 
 ## Dependencies
 
-Flagrant's dependency strategy reflects its position as a foundation-level component.
+Flagrant dependency strategy reflects its position as a foundation-level component.
 
 ### Runtime
 
@@ -1524,15 +1315,9 @@ Flagrant emphasizes rigorous testing at multiple levels:
 - **Property-based tests:** Use Hypothesis to discover edge cases automatically
 - **Fuzz tests:** Atheris-based fuzzing explores unexpected inputs
 - **Determinism tests:** Verify identical inputs always produce identical results
+- **Integration tests:** Verify end-to-end parsing of complex command structures
 
-**Completion testing:**
-
-- **Permissive tests:** Verify completion never crashes on malformed input
-- **Shell-specific tests:** Validate output format for each shell
-- **Performance tests:** Ensure <100ms interactive latency
-- **Context tests:** Verify correct candidate generation for various input states
-
-The comprehensive test suite (>95% coverage) ensures parser and completer correctness across Python 3.10-3.14 and all major platforms (Linux, macOS, Windows).
+The comprehensive test suite (>95% coverage) ensures parser correctness across Python 3.10-3.14 and all major platforms (Linux, macOS, Windows).
 
 ### Why minimal dependencies
 
@@ -1544,7 +1329,7 @@ The comprehensive test suite (>95% coverage) ensures parser and completer correc
 
 ## Relationship to Aclaf
 
-Flagrant is designed as the parsing engine for Aclaf, a full-featured command-line application framework. Understanding the division of responsibilities clarifies Flagrant's scope.
+Flagrant is designed as the parsing engine for Aclaf, a full-featured command-line application framework. Understanding the division of responsibilities clarifies Flagrant scope.
 
 ### What Flagrant provides
 
@@ -1552,13 +1337,9 @@ Flagrant is designed as the parsing engine for Aclaf, a full-featured command-li
 
 Flagrant answers: "Did the user type `--count 5` or `--count 10`?" It classifies tokens, extracts values, and produces structured data representing the syntactic structure of the input. It does NOT answer "Is 5 a valid count?" or "What should we do with count=5?"
 
-**Completion generation**
-
-Flagrant generates suggestions for partial input: "The user typed `--co`, suggest `--count` and `--color`." It knows which options, positionals, and subcommands are valid at a given position based on the specification.
-
 **Specification model**
 
-Flagrant defines the `CommandSpecification` hierarchy that describes CLI structure. This model is the interface between Flagrant (parsing) and Aclaf (semantics).
+Flagrant defines the `CommandSpecification` hierarchy that describes CLI structure. This model is the interface between Flagrant (parsing) and Aclaf (semantics, presentation).
 
 **Error identification**
 
@@ -1596,9 +1377,13 @@ Aclaf maps parsed commands to application functions, invokes them with converted
 
 Aclaf generates usage messages, help text, and documentation from specifications. It renders option descriptions, examples, and usage patterns for users.
 
+**Completion generation**
+
+Aclaf generates shell-specific completion scripts (Bash, Zsh, Fish, PowerShell) from specifications and parse results. It provides context-aware completion suggestions based on the CLI structure.
+
 **Error presentation**
 
-Aclaf renders parse errors and validation errors as user-friendly messages with color, highlighting, suggestions, and examples. It uses the context provided by Flagrant's exceptions to produce precise, helpful output.
+Aclaf renders parse errors and validation errors as user-friendly messages with color, highlighting, suggestions, and examples. It uses the context provided by Flagrant exceptions to produce precise, helpful output.
 
 ### Why separated
 
@@ -1620,7 +1405,7 @@ This architecture mirrors compiler design: Flagrant is the lexer/parser (syntax)
 
 **Accumulation mode:** Strategy for handling repeated options (FIRST, LAST, APPEND, EXTEND, COUNT, MERGE, ERROR)
 
-**Negation:** Automatic generation of inverse flag forms (e.g., `--no-verbose` from `--verbose`)
+**Negation:** Automatic generation of inverse flag forms (for example, `--no-verbose` from `--verbose`)
 
 **Parse result:** Structured output containing options, positionals, and subcommands as strings
 
@@ -1628,19 +1413,17 @@ This architecture mirrors compiler design: Flagrant is the lexer/parser (syntax)
 
 **Argument files:** Files containing arguments, expanded via `@filename` syntax
 
-**Completion candidate:** Suggested completion for partial user input
-
-**Shell formatter:** Component that transforms CompletionResult into shell-specific format
-
-**Resilient parsing:** Permissive analysis mode used by completion to handle incomplete input
-
 **Configuration precedence:** Three-tier system: option-level → global configuration → system defaults
+
+**Token classification:** Process of identifying whether an argument is an option, positional, subcommand, or separator
+
+---
 
 ## See also
 
 For deeper dives into specific architectural areas:
 
 - **[Concepts](concepts.md)**: Detailed explanations of core concepts (arity, accumulation, negation, etc.) with extensive examples
-- **[Parser overview](parsing/overview.md)**: In-depth exploration of parsing algorithms, preprocessing, and result structures
+- **[Parser behavior](behavior.md)**: In-depth exploration of parsing algorithms, preprocessing, and result structures
 
 These documents expand on the architectural overview provided here with implementation details, edge cases, and practical guidance.

@@ -129,3 +129,6 @@ deploy-docs-pr number: (build-docs-pr number)
 # Develop the documentation site locally
 dev-docs:
   uv run --group docs mkdocs serve --livereload --dev-addr 127.0.0.1:8001
+
+mermaid *args:
+  pnpm exec mmdc {{args}}

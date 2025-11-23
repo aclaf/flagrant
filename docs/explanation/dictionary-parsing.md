@@ -1,42 +1,45 @@
 # Dictionary parsing specification
 
+--8<-- "unreleased.md"
+
+!!! warning "Not yet implemented"
+    Dictionary option parsing with AST construction and structured merge semantics is planned but not yet fully implemented. This document describes the intended design and specification. The current parser treats dictionary option values as simple strings. Full dictionary parsing will be added in a future release.
+
 This page specifies the parsing algorithms for dictionary options in Flagrant. It covers lexical analysis, syntactic parsing, abstract syntax tree construction, tree building, merging strategies, and error handling for transforming key-value argument strings into structured dictionary values.
 
 Dictionary options use `DictAccumulationMode` to control how multiple occurrences are combined. The accumulation mode determines whether dictionaries are merged (MERGE with SHALLOW or DEEP strategy), replaced (FIRST/LAST), collected separately (APPEND), or rejected (ERROR). See [Concepts](concepts.md) and [Parser behavior](behavior.md) for complete accumulation mode semantics.
 
 ## Table of contents
 
-- [Dictionary parsing specification](#dictionary-parsing-specification)
-  - [Table of contents](#table-of-contents)
-  - [Syntax specification](#syntax-specification)
-    - [Flat dictionaries](#flat-dictionaries)
-    - [Nested dictionaries](#nested-dictionaries)
-    - [Lists in dictionaries](#lists-in-dictionaries)
-    - [Escaping special characters](#escaping-special-characters)
-  - [Lexical analysis](#lexical-analysis)
-    - [Token types](#token-types)
-    - [Escaping rules](#escaping-rules)
-  - [Syntactic analysis](#syntactic-analysis)
-    - [Path parsing](#path-parsing)
-    - [Value parsing](#value-parsing)
-  - [Abstract syntax tree](#abstract-syntax-tree)
-    - [AST representation](#ast-representation)
-  - [Tree construction algorithm](#tree-construction-algorithm)
-    - [Construction steps](#construction-steps)
-    - [List handling](#list-handling)
-    - [Type conflict detection](#type-conflict-detection)
-  - [Merging algorithms](#merging-algorithms)
-    - [Shallow merge](#shallow-merge)
-    - [Deep merge](#deep-merge)
-    - [Conflict resolution](#conflict-resolution)
-  - [Value consumption](#value-consumption)
-  - [Error handling](#error-handling)
-  - [Examples](#examples)
-    - [Basic configuration](#basic-configuration)
-    - [Nested database configuration](#nested-database-configuration)
-    - [Server pool with list of dictionaries](#server-pool-with-list-of-dictionaries)
-    - [Kubernetes annotations with escaped keys](#kubernetes-annotations-with-escaped-keys)
-    - [Mixed types with deep merging](#mixed-types-with-deep-merging)
+- [Syntax specification](#syntax-specification)
+  - [Flat dictionaries](#flat-dictionaries)
+  - [Nested dictionaries](#nested-dictionaries)
+  - [Lists in dictionaries](#lists-in-dictionaries)
+  - [Escaping special characters](#escaping-special-characters)
+- [Lexical analysis](#lexical-analysis)
+  - [Token types](#token-types)
+  - [Escaping rules](#escaping-rules)
+- [Syntactic analysis](#syntactic-analysis)
+  - [Path parsing](#path-parsing)
+  - [Value parsing](#value-parsing)
+- [Abstract syntax tree](#abstract-syntax-tree)
+  - [AST representation](#ast-representation)
+- [Tree construction algorithm](#tree-construction-algorithm)
+  - [Construction steps](#construction-steps)
+  - [List handling](#list-handling)
+  - [Type conflict detection](#type-conflict-detection)
+- [Merging algorithms](#merging-algorithms)
+  - [Shallow merge](#shallow-merge)
+  - [Deep merge](#deep-merge)
+  - [Conflict resolution](#conflict-resolution)
+- [Value consumption](#value-consumption)
+- [Error handling](#error-handling)
+- [Examples](#examples)
+  - [Basic configuration](#basic-configuration)
+  - [Nested database configuration](#nested-database-configuration)
+  - [Server pool with list of dictionaries](#server-pool-with-list-of-dictionaries)
+  - [Kubernetes annotations with escaped keys](#kubernetes-annotations-with-escaped-keys)
+  - [Mixed types with deep merging](#mixed-types-with-deep-merging)
 
 ---
 
@@ -55,7 +58,7 @@ value          ::= <any string after first equals sign>
 identifier     ::= [a-zA-Z_][a-zA-Z0-9_-]*
 ```
 
-Multiple entries are provided as separate arguments when arity permits:
+multiple entries are provided as separate arguments when arity permits:
 
 ```bash
 --config key1=value1 key2=value2 key3=value3
@@ -83,7 +86,7 @@ Examples:
 # {"database": {"connection": {"timeout": "30"}}}
 ```
 
-The parser creates intermediate dictionary levels as needed. Multiple nested paths can coexist and merge:
+The parser creates intermediate dictionary levels as needed. multiple nested paths can coexist and merge:
 
 ```bash
 --config database.host=localhost database.port=5432
@@ -149,8 +152,6 @@ Examples:
 
 The backslash is removed during lexical analysis, producing the literal character.
 
----
-
 ## Lexical analysis
 
 Lexical analysis tokenizes input strings into a stream of tokens representing keys, operators, values, and structural elements.
@@ -183,8 +184,6 @@ Tokens: IDENTIFIER("data[0]"), EQUALS, IDENTIFIER("value")
 ```
 
 Shell quoting is processed before the lexer sees input, so the lexer handles both escaped characters that survived shell processing and quoted strings.
-
----
 
 ## Syntactic analysis
 
@@ -225,8 +224,6 @@ Values are initially treated as strings, with type conversion deferred to later 
 --config key=''                 # "" (empty string)
 --config key="contains=equals"  # "contains=equals"
 ```
-
----
 
 ## Abstract syntax tree
 
@@ -270,8 +267,6 @@ DictAST(
     )
 )
 ```
-
----
 
 ## Tree construction algorithm
 
@@ -359,8 +354,6 @@ Type conflicts occur when attempting to use the same key path as both a dictiona
 
 The algorithm detects conflicts by checking the current type at each path segment before navigation.
 
----
-
 ## Merging algorithms
 
 When `accumulation_mode=DictAccumulationMode.MERGE`, dictionaries from multiple option occurrences are merged according to the `merge_strategy`.
@@ -425,7 +418,7 @@ Example:
 
 ### Conflict resolution
 
-When merging dictionaries with conflicting types (e.g., string vs. nested dict):
+When merging dictionaries with conflicting types (for example, string vs. nested dict):
 
 - The later value overwrites the earlier value
 - No error is raised unless `strict_structure=True`
@@ -435,11 +428,9 @@ With `strict_structure=True`:
 - Type mismatches raise validation errors
 - Ensures dictionary structure remains consistent
 
----
-
 ## Value consumption
 
-Dictionary options consume values according to their `arity` specification. The parser applies standard value consumption rules (see `specs/parser/behavior.md`) with dictionary-specific considerations:
+Dictionary options consume values according to their `arity` specification. The parser applies standard value consumption rules (see [parser behavior specification](behavior.md)) with dictionary-specific considerations:
 
 1. **Parse each argument as key=value**: Split on first `=` to extract key and value
 2. **Parse key path**: Tokenize and parse the key into path segments
@@ -454,8 +445,6 @@ When `allow_item_separator=True`, a single argument can contain multiple key-val
 --config a=1,b=2,c=3
 # Equivalent to: --config a=1 b=2 c=3
 ```
-
----
 
 ## Error handling
 
@@ -498,9 +487,7 @@ Error: Duplicate list index at 'servers'
 Use unique indices or enable allow_duplicate_list_indices
 ```
 
-See `specs/parser/errors.md` for complete error type hierarchy and error message formatting.
-
----
+See the [error types specification](errors.md) for complete error type hierarchy and error message formatting.
 
 ## Examples
 
@@ -609,9 +596,8 @@ Result:
 
 ---
 
-**Related pages:**
+## See also
 
-- [Concepts](concepts.md) - Dictionary option concepts and overview
-- [Parser types](types.md) - `DictOptionSpecification` and `DictValue` type definitions
-- [Parser behavior](behavior.md) - General parsing behavior and value consumption
-- [Errors](errors.md) - Error types and exception hierarchy
+- **[Concepts](concepts.md)**: Dictionary option concepts and overview
+- **[Parser behavior](behavior.md)**: General parsing behavior and value consumption
+- **[Errors](errors.md)**: Error types and exception hierarchy

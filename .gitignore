@@ -59,3 +59,8 @@ tmp/
 # import-linter
 .import_linter_cache/
 tests/tmp
+
+# MkDocs
+site/
+mkdocs.pr.yml
+requirements.txt

@@ -1,9 +1,9 @@
-# `flagrant.exceptions`
+# `flagrant.parser`
 
 --8<-- "unreleased.md"
 
 <!-- vale off -->
 
-::: flagrant.exceptions
+::: flagrant.parser
 
 <!-- vale on -->

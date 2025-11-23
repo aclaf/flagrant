@@ -1,5 +1,10 @@
 # Argument files specification
 
+--8<-- "unreleased.md"
+
+!!! warning "Not yet implemented"
+    Argument file expansion is planned but not yet implemented in the current parser. This document describes the intended design and specification. The `@file` syntax and preprocessing behavior will be added in a future release.
+
 This page describes the argument file (response file) feature in Flagrant's command-line parser. It specifies the file format, syntax rules, processing semantics, error handling, and integration points for argument file support. The design draws on established conventions from tools like javac, Clikt, and picocli while prioritizing simplicity and predictability.
 
 ## Table of contents
@@ -9,42 +14,14 @@ This page describes the argument file (response file) feature in Flagrant's comm
   - [Overview](#overview)
   - [Motivation and use cases](#motivation-and-use-cases)
   - [File format and syntax](#file-format-and-syntax)
-    - [Line-based argument format](#line-based-argument-format)
-    - [Comment syntax](#comment-syntax)
-    - [Alternative shell-style format](#alternative-shell-style-format)
   - [Argument file specification](#argument-file-specification)
-    - [Syntax convention](#syntax-convention)
-    - [Path resolution](#path-resolution)
-    - [Escaping literal @ symbols](#escaping-literal--symbols)
-    - [Recursive expansion](#recursive-expansion)
   - [Processing semantics](#processing-semantics)
-    - [Expansion timing and order](#expansion-timing-and-order)
-    - [Precedence and override behavior](#precedence-and-override-behavior)
-    - [Error handling](#error-handling)
   - [Integration with parser architecture](#integration-with-parser-architecture)
-    - [Preprocessing phase](#preprocessing-phase)
-    - [Configuration options](#configuration-options)
-    - [Type safety and error propagation](#type-safety-and-error-propagation)
   - [Testing strategy](#testing-strategy)
-    - [Unit tests for expansion logic](#unit-tests-for-expansion-logic)
-    - [Integration tests with parser](#integration-tests-with-parser)
-    - [Property-based tests](#property-based-tests)
-    - [Error handling tests](#error-handling-tests)
   - [Future enhancements](#future-enhancements)
-    - [Shell-style argument format](#shell-style-argument-format)
-    - [Recursive expansion with cycle detection](#recursive-expansion-with-cycle-detection)
-    - [Argument file search paths](#argument-file-search-paths)
-    - [Default argument files](#default-argument-files)
-    - [Format validation and linting](#format-validation-and-linting)
   - [Security considerations](#security-considerations)
-    - [Path traversal](#path-traversal)
-    - [Resource exhaustion](#resource-exhaustion)
-    - [Information disclosure](#information-disclosure)
   - [Implementation notes](#implementation-notes)
-    - [File encoding](#file-encoding)
-    - [Line ending normalization](#line-ending-normalization)
-    - [Performance considerations](#performance-considerations)
-    - [Compatibility](#compatibility)
+  - [See also](#see-also)
 
 ---
 
@@ -60,7 +37,7 @@ Command-line interfaces frequently encounter situations where the sheer number o
 
 Common scenarios include build systems that need to pass extensive compiler flags and file lists, test frameworks that need to specify numerous configuration options, and applications with environment-specific settings that differ between development, staging, and production. Developers frequently need to invoke the same command with slight variations, and argument files enable this by allowing a base configuration file to be combined with command-line overrides. CI/CD pipelines benefit from storing canonical configurations in version-controlled argument files rather than embedding them in scripts where they're harder to audit and modify.
 
-The feature also improves accessibility by reducing the need to type or remember long command sequences. Users can maintain curated argument files for different purposes and simply reference them by name. When combined with shell completion, this provides a powerful workflow where users can quickly select from predefined configurations.
+The feature also improves accessibility by reducing the need to type or remember long command sequences. Users can maintain curated argument files for different purposes and simply reference them by name.
 
 ## File format and syntax
 
@@ -146,7 +123,7 @@ Command-line arguments follow standard last-wins semantics where later specifica
 
 Arguments specified directly on the command line after an argument file override values from that file. The invocation `app @base.args --output=custom.txt` will use `custom.txt` for output even if `base.args` contains `--output=default.txt`, because the command-line argument appears later in the argument stream. Conversely, `app --output=custom.txt @base.args` results in the file's output setting taking effect if it specifies one.
 
-Multiple argument files can be specified, and they're processed in the order they appear. The command `app @base.args @overrides.args` loads base configuration first, then applies overrides. If both files specify the same option, the value from `overrides.args` wins because it appears later in the expanded argument list.
+multiple argument files can be specified, and they're processed in the order they appear. The command `app @base.args @overrides.args` loads base configuration first, then applies overrides. If both files specify the same option, the value from `overrides.args` wins because it appears later in the expanded argument list.
 
 This precedence model is simple, predictable, and matches user expectations from shell argument processing. It requires no special handling for argument files; they're simply another source of arguments that participate in normal parsing.
 
@@ -218,7 +195,7 @@ Property-based testing with Hypothesis should verify invariants about argument f
 
 Order preservation is another important property: if argument file A contains arguments `[a1, a2, a3]` and the command line is `[arg1, @A, arg2]`, the expanded list must be `[arg1, a1, a2, a3, arg2]`. The relative order of arguments from different sources must be preserved.
 
-Property tests can generate random argument lists with randomly placed argument files, write those files to temporary locations, and verify that expansion produces the expected results. They can test edge cases like very long files, files with unusual characters in arguments, and deeply nested structures (if recursion is supported).
+Property tests can generate random argument lists with randomly placed argument files, write those files to temporary locations, and verify that expansion produces the expected results. They can test edge cases like long files, files with unusual characters in arguments, and deeply nested structures (if recursion is supported).
 
 ### Error handling tests
 
@@ -240,9 +217,9 @@ The format should be configurable so applications can choose which mode to use. 
 
 Supporting recursive expansion where argument files can reference other argument files enables modular composition of configurations. A base configuration file can be imported by multiple specialized configurations, and common settings can be factored out into shared files.
 
-Safe implementation requires explicit depth limits and cycle detection. The depth limit prevents abuse and ensures that expansion terminates in reasonable time. Cycle detection prevents infinite loops where files reference each other directly or indirectly. The detection algorithm should track the chain of currently-open files and fail if it encounters a file already in the chain.
+Safe implementation requires explicit depth limits and cycle detection. The depth limit prevents abuse and ensures that expansion terminates in reasonable time. Cycle detection prevents infinite loops where files reference each other directly or indirectly. The detection algorithm should track the chain of currently open files and fail if it encounters a file already in the chain.
 
-Error messages for recursion problems should clearly indicate what went wrong. For depth limit violations, show the depth and the chain of files. For cycles, show the complete cycle path: "A → B → C → A". This helps users understand complex configuration structures and identify the problematic reference.
+Error messages for recursion problems should clearly indicate what went wrong. For depth limit violations, show the depth and the chain of files. For cycles, show the complete cycle path: "A → B → C → A." This helps users understand complex configuration structures and identify the problematic reference.
 
 ### Argument file search paths
 
@@ -278,9 +255,9 @@ The parser should normalize paths and check that they resolve to expected locati
 
 ### Resource exhaustion
 
-Large argument files or deeply nested recursive structures can cause memory exhaustion or long processing times. The parser should impose reasonable limits on file size (perhaps 1MB or 10MB) and recursion depth (3-5 levels). These limits prevent accidental or malicious resource exhaustion.
+Large argument files or deeply nested recursive structures can cause memory exhaustion or long processing times. The parser should impose reasonable limits on file size (perhaps 1 MB or 10 MB) and recursion depth (3-5 levels). These limits prevent accidental or malicious resource exhaustion.
 
-If an argument file exceeds size limits, the parser fails with a clear error rather than attempting to read it. If expansion exceeds time limits (e.g., 1 second), the parser aborts and reports the problem. These limits should be configurable but have safe defaults.
+If an argument file exceeds size limits, the parser fails with a clear error rather than attempting to read it. If expansion exceeds time limits (for example, 1 second), the parser aborts and reports the problem. These limits should be configurable but have safe defaults.
 
 ### Information disclosure
 
@@ -314,10 +291,9 @@ The feature should integrate cleanly with Flagrant's existing parser without req
 
 ---
 
-**Related pages:**
+## See also
 
-- [Parser overview](overview.md) - Parser design principles and constraints
-- [Configuration](configuration.md) - Parser configuration options
-- [Errors](errors.md) - Exception types and error handling
-- [Testing](testing.md) - Testing strategy and coverage requirements
-- [Types](types.md) - Data structures and type definitions
+- **[Behavior](behavior.md)**: Parser behavior and parsing algorithms
+- **[Configuration](configuration.md)**: Parser configuration options
+- **[Errors](errors.md)**: Exception types and error handling
+- **[Testing](testing.md)**: Testing strategy and coverage requirements

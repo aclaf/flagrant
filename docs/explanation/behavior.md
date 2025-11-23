@@ -1,5 +1,7 @@
 # Parser behavior and runtime characteristics
 
+--8<-- "unreleased.md"
+
 This page specifies the core parsing algorithms and runtime behavior of the Flagrant parser. It details how raw argument strings are transformed into structured parse results through a single-pass, left-to-right parsing process. The document covers argument classification, option parsing (long and short), value consumption, option accumulation, positional grouping, and subcommand resolution.
 
 ## Table of contents
@@ -42,7 +44,7 @@ This phased approach enables the parser to collect positional arguments during p
 
 Initialization occurs once when a parser instance is created, before any parsing operations.
 
-**Specification validation:** The parser validates that the provided `CommandSpecification` is structurally valid:
+**Specification validation:** the parser validates that the provided `CommandSpecification` is structurally valid:
 
 - All option names (both long and short forms) are unique within the command
 - All subcommand names and aliases are unique within the command
@@ -52,11 +54,14 @@ Initialization occurs once when a parser instance is created, before any parsing
 
 Invalid specifications raise errors during parser construction, establishing a fail-fast validation boundary. Once a parser is created successfully, the specification is guaranteed to be valid.
 
-**Resolution function caching:** The parser caches option and subcommand resolution results for performance. Resolution lookups are memoized to enable O(1) retrieval for repeated resolutions. A common case like `-vvv` (resolving 'v' three times) benefits significantly from caching, with the first resolution performing the lookup and subsequent resolutions retrieving the cached result.
+**Resolution function caching:** the parser caches option and subcommand resolution results for performance. Resolution lookups are memoized to enable O(1) retrieval for repeated resolutions. A common case like `-vvv` (resolving 'v' three times) benefits from caching, with the first resolution performing the lookup and later resolutions retrieving the cached result.
 
-**Immutability establishment:** The parser itself is immutable after construction. All configuration flags, the specification, and any resolution caches are fixed at this point. This enables safe concurrent reuse of parser instances across threads without synchronization.
+**Immutability establishment:** the parser itself is immutable after construction. All configuration flags, the specification, and any resolution caches are fixed at this point. This enables safe concurrent reuse of parser instances across threads without synchronization.
 
-**Preprocessing - Argument file expansion:** If argument files are enabled (`argument_file_prefix` is not None), the parser expands `@file` references before the main parsing loop begins. This preprocessing phase transforms the raw argument list by:
+!!! warning "Not yet implemented"
+    Argument file expansion is planned but not yet implemented in the current parser. The `@file` syntax and behavior described below represent the intended design. For now, `@` characters in arguments are treated as regular text without special processing.
+
+**Preprocessing - Argument file expansion:** if argument files are enabled (`argument_file_prefix` is not None), the parser expands `@file` references before the main parsing loop begins. This preprocessing phase transforms the raw argument list by:
 
 1. Scanning arguments left-to-right for the configured prefix (default `@`)
 2. Reading referenced files and parsing their contents according to `argument_file_format` (LINE or SHELL)
@@ -67,14 +72,14 @@ Invalid specifications raise errors during parser construction, establishing a f
 
 The expansion process maintains left-to-right order, which directly affects precedence: arguments from earlier files appear earlier in the expanded list, and later arguments override earlier ones according to last-wins semantics. The main parsing loop operates on the fully expanded argument list with all `@file` references resolved.
 
-Argument file expansion can fail with several error types (see `specs/parser/errors.md`):
+Argument file expansion can fail with several error types (see [error types specification](errors.md)):
 
 - `ArgumentFileNotFoundError` - Referenced file does not exist
 - `ArgumentFileReadError` - File exists but cannot be read (permissions, I/O errors)
 - `ArgumentFileFormatError` - File contains malformed content (invalid encoding, format violations)
 - `ArgumentFileRecursionError` - Recursion depth exceeded or circular reference detected
 
-For complete details on argument file syntax, format options, and processing semantics, see `specs/parser/argument-files.md`.
+For complete details on argument file syntax, format options, and processing semantics, see the [argument files specification](argument-files.md).
 
 ### Phase 2: Argument classification and processing
 
@@ -87,7 +92,7 @@ The main parsing loop processes arguments left-to-right in a single pass. The pa
 - **trailing_mode** - Boolean flag indicating whether the parser is in trailing mode (after `--`)
 - **trailing_args** - List of arguments that appeared after `--`
 
-**Loop structure:** The parser processes arguments in order, examining each argument and deciding whether it's an option, positional, subcommand, or trailing argument. For each argument, the parser:
+**Loop structure:** the parser processes arguments in order, examining each argument and deciding whether it's an option, positional, subcommand, or trailing argument. For each argument, the parser:
 
 1. Classifies the argument based on its syntactic form and current state
 2. Processes the argument according to its classification (consuming values if necessary)
@@ -96,7 +101,7 @@ The main parsing loop processes arguments left-to-right in a single pass. The pa
 
 The loop continues until all arguments are exhausted or a subcommand transition occurs.
 
-**Subcommand handling:** When the parser encounters a subcommand name, it immediately completes the current command's parse result with all accumulated options and positionals. The remaining arguments are then delegated to recursive parsing using the subcommand's specification. This creates a nested parse result structure that mirrors the command hierarchy.
+**Subcommand handling:** when the parser encounters a subcommand name, it immediately completes the current command's parse result with all accumulated options and positionals. The remaining arguments are then delegated to recursive parsing using the subcommand's specification. This creates a nested parse result structure that mirrors the command hierarchy.
 
 ### Phase 3: Positional grouping
 
@@ -135,52 +140,59 @@ Arguments are classified in the following precedence order:
 
 - **Single dash** (`-`) is always treated as a positional argument, following Unix convention for stdin/stdout
 - **Negative numbers** are treated as positionals when `allow_negative_numbers=True` and positional specs are defined
-- **POSIX-style ordering boundary** - Once the first positional is encountered when `strict_options_before_positionals=True`, all subsequent arguments become positionals
+- **POSIX-style ordering boundary** - Once the first positional is encountered when `strict_posix_options=True`, all subsequent arguments become positionals
 
 ### Formal classification algorithm
 
-```
-for each argument at position i:
-    if in trailing_mode:
-        add argument to trailing_args
-        increment position
-        continue
+The parser classifies each argument according to the following algorithm:
 
-    if argument == "--":
-        enable trailing_mode
-        increment position
-        continue
+1. **Check trailing mode:**
+   - If `trailing_mode` is enabled:
+     - Add argument to `trailing_args`
+     - Increment position
+     - Continue to next argument
 
-    if argument starts with "--":
-        if strict_options_before_positionals AND positionals_started:
-            treat as positional
-        else:
-            try to parse as long option
-        continue
+2. **Check for double-dash separator:**
+   - If argument equals `"--"`:
+     - Enable `trailing_mode`
+     - Increment position
+     - Continue to next argument
 
-    if argument starts with "-" AND argument != "-":
-        if matches negative_number_pattern AND allow_negative_numbers AND positionals defined:
-            treat as positional
-        else if strict_options_before_positionals AND positionals_started:
-            treat as positional
-        else:
-            try to parse as short options
-        continue
+3. **Check for long option prefix:**
+   - If argument starts with `"--"`:
+     - If `strict_posix_options` AND `positionals_started`:
+       - Treat as positional argument
+     - Otherwise:
+       - Parse as long option
+     - Continue to next argument
 
-    if argument matches a subcommand name:
-        parse subcommand recursively
-        return subcommand result
+4. **Check for short option prefix:**
+   - If argument starts with `"-"` AND argument is not exactly `"-"`:
+     - If matches `negative_number_pattern` AND `allow_negative_numbers` AND positionals are defined:
+       - Treat as positional argument
+     - Else if `strict_posix_options` AND `positionals_started`:
+       - Treat as positional argument
+     - Otherwise:
+       - Parse as short option cluster
+     - Continue to next argument
 
-    if argument is exactly "-":
-        treat as positional
-        continue
+5. **Check for subcommand name:**
+   - If argument matches a defined subcommand name:
+     - Parse subcommand recursively with remaining arguments
+     - Return subcommand result (terminates current command parsing)
 
-    treat as positional
-```
+6. **Check for single dash:**
+   - If argument is exactly `"-"`:
+     - Treat as positional argument
+     - Continue to next argument
+
+7. **Default classification:**
+   - Treat as positional argument
+   - Continue to next argument
 
 ### POSIX-style ordering enforcement
 
-When `strict_options_before_positionals=True`, the parser enforces POSIX-style ordering where all options must precede all positional arguments. Once the `positionals_started` flag is set (by encountering the first argument that is not an option), all subsequent option-like arguments are reclassified as positionals.
+When `strict_posix_options=True`, the parser enforces POSIX-style ordering where all options must precede all positional arguments. Once the `positionals_started` flag is set (by encountering the first argument that is not an option), all subsequent option-like arguments are reclassified as positionals.
 
 This provides users with the guarantee that option-like values can be passed as positional arguments without ambiguity when POSIX-style ordering is enabled, as long as they appear after at least one positional argument.
 
@@ -216,7 +228,7 @@ The option name is extracted by removing the `--` prefix. For inline value synta
 
 ### Negation handling
 
-Before resolving the option name, the parser checks whether the option name starts with a configured negation word. For example, with negation word "no", the option name "no-verbose" is recognized as a negation of the "verbose" option.
+Before resolving the option name, the parser checks whether the option name starts with a configured negation word. For example, with negation word "no," the option name "no-verbose" is recognized as a negation of the "verbose" option.
 
 The negation check:
 
@@ -225,32 +237,41 @@ The negation check:
 3. If found, strips the negation prefix and marks the option as negated
 4. Proceeds with name resolution on the base option name
 
-### Decision tree for value handling
+### Long option value handling algorithm
 
-The parser determines how to handle a long option based on several factors:
+The parser determines how to handle a long option based on its specification type and whether an inline value is present:
 
+```mermaid
+flowchart TD
+    Start([Long option parsed]) --> CheckFlag{Is flag option?}
+    CheckFlag -->|Yes| CheckInline{Inline value present?}
+    CheckInline -->|Yes| RaiseError[Raise FlagWithValueError]
+    CheckInline -->|No| CheckNegation{Negation detected?}
+    CheckNegation -->|Yes| SetFalse[Set value to False]
+    CheckNegation -->|No| SetTrue[Set value to True]
+
+    CheckFlag -->|No| CheckInlineValue{Inline value present?}
+    CheckInlineValue -->|Yes| CombineValues[Combine inline value with following args according to arity]
+
+    CheckInlineValue -->|No| CheckNextArgs{Next args available?}
+    CheckNextArgs -->|Yes| ConsumeValues[Consume values from next_args according to arity]
+    CheckNextArgs -->|No| CheckMinArity{arity.min == 0?}
+    CheckMinArity -->|Yes| EmptyTuple[Set value to empty tuple]
+    CheckMinArity -->|No| RaiseInsufficientValues[Raise InsufficientOptionValuesError]
+
+    SetFalse --> End([Option value determined])
+    SetTrue --> End
+    CombineValues --> End
+    ConsumeValues --> End
+    EmptyTuple --> End
 ```
-if is_flag:
-    if inline_value present:
-        raise FlagWithValueError (flags do not accept values)
-    else if negation detected:
-        set value to false
-    else:
-        set value to true
 
-else:  # non-flag option (ValueOptionSpecification or DictOptionSpecification)
-    if inline_value present:
-        if arity.min > 1:
-            raise InsufficientOptionValuesError (inline provides only one)
-        else:
-            consume inline_value
-    else if next arguments available:
-        consume values from next_args according to arity
-    else if arity.min == 0:
-        set value to empty tuple (zero-arity value option)
-    else:
-        raise InsufficientOptionValuesError
-```
+**Key decision points:**
+
+1. **Flag vs non-flag:** Flags cannot accept values; attempting to provide one raises an error
+2. **Inline value with multi-value arity:** Inline values can be combined with following arguments to satisfy arity constraints; an error is raised only if total values (inline + following) are less than minimum arity
+3. **Zero-arity options:** Options with `arity.min == 0` can complete without values
+4. **Value consumption:** Non-flag options consume values from following arguments when no inline value is present, or combine inline values with following arguments when inline values are provided
 
 ### Inline value semantics
 
@@ -258,10 +279,58 @@ When an equals sign is present in a long option, the value assignment is explici
 
 - The inline value provides exactly one value
 - For flag options, equals syntax raises an error (flags do not accept values)
-- For non-flag options with arity requiring multiple values, the single inline value raises an error
-- For non-flag options with arity accepting one value, the inline value satisfies that requirement
+- For non-flag options, inline values can be combined with following arguments to satisfy arity constraints
+- For non-flag options with arity `(1, 1)`, the inline value alone satisfies the requirement
+- For non-flag options with arity `(2, 3)`, an inline value plus following arguments can satisfy the requirement
 
-This means `--files=a b c` provides a single value `"a b c"`, not three separate values. To provide multiple values, users must use space syntax: `--files a b c`.
+Examples with an option having arity `(2, 3)`:
+
+```bash
+# Option with arity (2, 3) - requires 2-3 values
+program --coords=10 20          # OK: inline value '10' + following arg '20' = 2 values
+program --coords=10 20 30       # OK: inline value '10' + following args '20' '30' = 3 values
+program --coords=10             # ERROR: only 1 value total, needs minimum 2
+```
+
+Note that `--files=a b c` provides a single value `"a b c"`, not three separate values. To provide multiple distinct values, the inline value counts as one and additional values come from following arguments.
+
+### Inline values without equals
+
+When `allow_inline_values_without_equals=True`, the parser supports attaching values directly to long option names without an equals sign.
+
+**Parsing algorithm:**
+
+The parser attempts to match the argument against defined option names using prefix matching:
+
+1. First, split on equals sign if present (standard equals syntax takes precedence)
+2. If no equals sign and standard name resolution fails, iterate through defined long option names
+3. For each long option name, check if the argument (minus prefix) starts with that name
+4. If a match is found, extract the option name and treat the remainder as the inline value
+5. Use the first matching option found (iteration order determines precedence)
+
+**Precedence rules:**
+
+1. Equals-separated values take precedence: `--output=file.txt` always splits on `=`
+2. Exact option name matches take precedence: `--output` matches exactly before prefix matching
+3. If no exact match and `allow_inline_values_without_equals=True`, attempt prefix matching
+4. First match wins when multiple options could match as prefixes
+
+**Examples:**
+
+```bash
+# With allow_inline_values_without_equals=True and options: output, verbose
+--outputfile.txt       # Matches "output", inline_value="file.txt"
+--verbosemode          # Matches "verbose", inline_value="mode"
+--output=file.txt      # Equals syntax takes precedence, inline_value="file.txt"
+
+# With options: output, output-dir (order matters)
+--outputfile.txt       # Matches first option "output", inline_value="file.txt"
+--output-dirname       # Matches "output-dir", inline_value="name"
+```
+
+**Implementation details:**
+
+Prefix matching occurs after standard name resolution fails. The parser iterates through available long option names and uses the first matching prefix. This means option definition order affects which option matches when one option name is a prefix of another.
 
 ## Short option parsing
 
@@ -281,12 +350,12 @@ Characters: a
 Stop at: =
 Extracted: option_specs = {a}, inline_value = "value"
 
-Input: "-abc123"
+Input: "-abc123" (with allow_inline_values_without_equals=True and 1,2,3 not defined)
 Characters: a, b, c
 Stop at: 1 (not a defined short option)
 Extracted: option_specs = {a, b, c}, inline_value = "123"
 
-Input: "-ofile.txt"
+Input: "-ofile.txt" (with allow_inline_values_without_equals=True and 'f' not defined)
 Characters: o
 Stop at: f (not a defined short option)
 Extracted: option_specs = {o}, inline_value = "file.txt"
@@ -296,29 +365,48 @@ Extracted: option_specs = {o}, inline_value = "file.txt"
 
 - Characters are extracted left-to-right
 - Extraction stops at `=` (everything after becomes the inline value)
-- Extraction stops at an unrecognized character (everything from that point becomes the inline value)
+- With `allow_inline_values_without_equals=True`, extraction stops at an unrecognized character (everything from that point becomes the inline value)
 - If the first character is unrecognized, an error is raised
-- If all characters are recognized, there is no inline value
+- If all characters are recognized, there is no inline value (unless `=` was present)
+
+**Behavior with `allow_inline_values_without_equals`:**
+
+When `allow_inline_values_without_equals=True`:
+
+- Unrecognized characters after valid options mark the start of an inline value
+- The inline value includes the unrecognized character and all following characters
+- This enables syntax like `-ofilename.txt` even when `f`, `i`, `l`, etc. are not defined options
+
+When `allow_inline_values_without_equals=False` (default):
+
+- Unrecognized characters raise `UnknownOptionError`
+- Standard attached value syntax still works for recognized options: `-ofile.txt` works if only the first character needs to be a recognized option
 
 ### Phase 2: Process option specifications
 
 The parser treats all options except the last as "inner" options that must be flags. The last option can consume values.
 
-```
-for each extracted option_spec:
-    if is_last_option:
-        # Last option can accept values
-        apply same logic as long options
-        consume inline_value or values from next_args if needed
-    else:
-        # Inner options must be flags
-        if is_flag or arity == (0, 0):
-            set value to true
-        else:
-            raise InsufficientOptionValuesError
+**Processing algorithm:**
 
-    accumulate option with current value
-```
+1. **For each extracted option specification:**
+
+   - **If last option in cluster:**
+     - Apply same value handling logic as long options
+     - If inline value present:
+       - Use inline value
+     - Otherwise:
+       - Consume values from following arguments according to arity constraints
+     - Accumulate option with determined value
+
+   - **If inner option (not last):**
+     - Check if option can be used without values:
+       - If option is a flag (`is_flag=True`):
+         - Set value to `True`
+       - Else if option has zero arity (`arity == (0, 0)`):
+         - Set value to `True`
+       - Otherwise:
+         - Raise `InsufficientOptionValuesError` (inner options cannot consume values)
+     - Accumulate option with value `True`
 
 **Inner option constraints:**
 
@@ -332,7 +420,7 @@ This constraint exists because inner options cannot consume values; there's no w
 
 ### Clustering interaction with accumulation
 
-When multiple short option characters are the same option (e.g., `-vvv` where 'v' is the verbose flag), each occurrence is processed separately through the accumulation algorithm.
+When multiple short option characters are the same option (for example, `-vvv` where 'v' is the verbose flag), each occurrence is processed separately through the accumulation algorithm.
 
 For COUNT accumulation mode, each 'v' increments the counter:
 
@@ -350,7 +438,7 @@ For COUNT accumulation mode, each 'v' increments the counter:
 
 ## Value consumption
 
-The `_parse_option_values_from_args` algorithm handles consuming multiple values from following arguments when an option doesn't have an inline value. Dictionary options use specialized value consumption with additional parsing steps—see [Dictionary option value consumption](#dictionary-option-value-consumption) below for details.
+Value consumption handles consuming multiple values from following arguments when an option doesn't have an inline value. Dictionary options use specialized value consumption with additional parsing steps—see [Dictionary option value consumption](#dictionary-option-value-consumption) below for details.
 
 ### Algorithm overview
 
@@ -361,54 +449,62 @@ Value consumption consumes arguments from the remaining argument list until one 
 Value consumption stops when any of these conditions occur:
 
 1. **Maximum arity reached** - `consumed >= arity.max` (if max is not None)
-2. **Option detected** - Next argument starts with `-` and is not exactly `-`
+2. **Resolvable option detected** - Next argument resolves to a known option name
 3. **Subcommand detected** - Next argument matches a defined subcommand name
-4. **End of arguments** - No more arguments available
+4. **End-of-options delimiter** - The `--` delimiter is encountered
+5. **End of arguments** - No more arguments available
+
+When `allow_negative_numbers` is enabled, arguments matching the negative number pattern are consumed as values rather than being treated as options, even if they start with `-`.
 
 ### Value consumption algorithm
 
-```
-values = []
-consumed = 0
+The value consumption algorithm collects argument values from the remaining argument stream:
 
-while consumed < len(next_args):
-    if arity.max is not None and consumed >= arity.max:
-        break  # Maximum arity reached
+1. **Initialize collection:**
+   - Create empty values list
+   - Set consumed counter to 0
 
-    current_value = next_args[consumed]
+2. **Collect values while available:**
+   - For each argument in `next_args` starting at current position:
+     - **Check maximum arity reached:**
+       - If `arity.max` is not None AND `consumed >= arity.max`:
+         - Stop consumption (maximum values collected)
+     - **Check for resolvable option:**
+       - If current value resolves to a known option name:
+         - Stop consumption (next option encountered)
+     - **Check for subcommand:**
+       - If current value matches a defined subcommand name:
+         - Stop consumption (subcommand boundary encountered)
+     - **Check for end-of-options delimiter:**
+       - If current value is exactly `"--"`:
+         - Stop consumption (explicit boundary marker)
+     - **Collect value:**
+       - Append current value to values list
+       - Increment consumed counter
 
-    if current_value starts with "-" and current_value != "-":
-        break  # Option-like argument encountered
+3. **Validate minimum arity:**
+   - If length of values list is less than `arity.min`:
+     - Raise `InsufficientOptionValuesError`
 
-    if current_value matches a subcommand name:
-        break  # Subcommand name encountered
+4. **Determine result type:**
+   - If arity is `EXACTLY_ONE_ARITY` (1, 1) AND accumulation mode is `LAST_WINS` or `FIRST_WINS`:
+     - Return single string (`values[0]`)
+   - Else if arity is `ZERO_OR_ONE_ARITY` (0, 1) AND accumulation mode is `LAST_WINS` or `FIRST_WINS`:
+     - Return single string (`values[0]`) if value provided
+   - Otherwise:
+     - Return tuple of strings (`tuple(values)`)
 
-    values.append(current_value)
-    consumed += 1
+5. **Return results:**
+   - Return `ParsedOption` with determined value
+   - Return count of arguments consumed from stream
 
-if len(values) < arity.min:
-    raise InsufficientOptionValuesError
+### Negative number handling
 
-# Determine result type based on arity and accumulation mode
-if arity in (EXACTLY_ONE_ARITY, ZERO_OR_ONE_ARITY) and accumulation_mode in (LAST_WINS, FIRST_WINS):
-    result = values[0]  # Single string
-else:
-    result = tuple(values)  # Tuple of strings
+When `allow_negative_numbers` is enabled, the parser recognizes arguments matching the negative number pattern and treats them as values rather than as options. This allows passing negative numbers as option values while still supporting short options.
 
-return ParsedOption(name, result), consumed
-```
+The negative number pattern (configurable via `negative_number_pattern`) typically matches strings like `-5`, `-3.14`, or `-1e5`. When a value during consumption matches this pattern and `allow_negative_numbers=True`, it is consumed as a value rather than triggering the "resolvable option" stopping condition.
 
-### Special case: Negative numbers
-
-Currently, arguments starting with `-` stop value consumption, which prevents passing negative numbers as option values. The implementation contains a TODO noting this limitation:
-
-```python
-if current_value.startswith("-") and current_value != "-":
-    # TODO: Handle special case for negative numbers?
-    break
-```
-
-Future implementations could recognize negative number patterns and continue consuming, but this requires careful disambiguation between negative numbers and short options.
+This configuration can be overridden on a per-option basis through the `ValueOptionSpecification.allow_negative_numbers` field, enabling fine-grained control over which options accept negative numbers.
 
 ### Special case: Single dash
 
@@ -430,50 +526,59 @@ When an option appears multiple times in the argument list, the parser applies t
 
 ### Accumulation algorithm
 
-```
-def accumulate_option(existing_option, new_option, spec):
-    if existing_option is None:
-        # First occurrence
-        if spec.accumulation_mode == COUNT:
-            new_option.value = 1 if new_option.value else 0
-        return new_option
+The accumulation algorithm determines how to combine values when an option appears multiple times:
 
-    # Second or later occurrence
-    if spec.accumulation_mode == FIRST_WINS:
-        return existing_option  # Discard new value
+1. **Check for first occurrence:**
+   - If no existing option value in options dictionary:
+     - **For COUNT accumulation mode:**
+       - Set value to 1 if new value is truthy, otherwise 0
+     - **For all other modes:**
+       - Use new option value as-is
+     - Return new option
 
-    elif spec.accumulation_mode == LAST_WINS:
-        return new_option  # Replace with new value
+2. **Process subsequent occurrences:**
 
-    elif spec.accumulation_mode == APPEND:
-        # Append each occurrence's values as a separate tuple element
-        # For arity > 1, this preserves arity-bounded groups
-        old_values = existing_option.value if isinstance(existing_option.value, tuple) else (existing_option.value,)
-        new_values = new_option.value if isinstance(new_option.value, tuple) else (new_option.value,)
+   - **FIRST_WINS mode:**
+     - Discard new value entirely
+     - Return existing option unchanged
 
-        # If arity > 1, create nested tuple structure
-        combined = (*old_values, new_values)
-        new_option.value = combined
-        return new_option
+   - **LAST_WINS mode:**
+     - Replace existing value completely with new value
+     - Return new option
 
-    elif spec.accumulation_mode == EXTEND:
-        # Extend all values into a single flat tuple
-        old_values = existing_option.value if isinstance(existing_option.value, tuple) else (existing_option.value,)
-        new_values = new_option.value if isinstance(new_option.value, tuple) else (new_option.value,)
+   - **APPEND mode:**
+     - Normalize existing value to tuple:
+       - If existing value is tuple: use as-is
+       - Otherwise: wrap in single-element tuple
+     - Normalize new value to tuple:
+       - If new value is tuple: use as-is
+       - Otherwise: wrap in single-element tuple
+     - Combine into nested structure:
+       - `combined = (*old_values, new_values)`
+       - This preserves arity-bounded groups for multi-value options
+     - Set new option value to combined
+     - Return new option
 
-        combined = (*old_values, *new_values)
-        new_option.value = combined
-        return new_option
+   - **EXTEND mode:**
+     - Normalize existing value to tuple (same as APPEND)
+     - Normalize new value to tuple (same as APPEND)
+     - Flatten all values into single tuple:
+       - `combined = (*old_values, *new_values)`
+       - This creates flat list without preserving occurrence boundaries
+     - Set new option value to combined
+     - Return new option
 
-    elif spec.accumulation_mode == COUNT:
-        # Increment count
-        increment = 1 if new_option.value else 0
-        new_option.value = existing_option.value + increment
-        return new_option
+   - **COUNT mode:**
+     - Calculate increment:
+       - If new value is truthy: increment = 1
+       - Otherwise: increment = 0
+     - Add increment to existing value:
+       - `new_value = existing_value + increment`
+     - Set new option value to updated count
+     - Return new option
 
-    elif spec.accumulation_mode == ERROR:
-        raise OptionCannotBeSpecifiedMultipleTimesError
-```
+   - **ERROR mode:**
+     - Raise `OptionCannotBeSpecifiedMultipleTimesError`
 
 ### Mode behaviors
 
@@ -495,52 +600,65 @@ Positional grouping distributes collected positional argument strings to their c
 
 ### Algorithm overview
 
-```
-if no positional specs defined:
-    create implicit spec: PositionalSpec("args", arity=(0, None))
-    specs = [implicit_spec]
-else:
-    specs = command_spec.positionals
+The positional grouping algorithm distributes collected positional arguments to specifications:
 
-# Validate total minimum requirements
-total_min = sum(spec.arity.min for spec in specs)
-if len(positionals) < total_min:
-    raise InsufficientValuesError
+1. **Determine positional specifications:**
+   - If no positional specs defined:
+     - Create implicit spec: `PositionalSpec("args", arity=(0, None))`
+     - Use implicit spec as specifications list
+   - Otherwise:
+     - Use `command_spec.positionals` as specifications list
 
-grouped = {}
-remaining = positionals
+2. **Validate total minimum requirements:**
+   - Calculate `total_min = sum(spec.arity.min for spec in specs)`
+   - If `len(positionals) < total_min`:
+     - Raise `InsufficientValuesError`
 
-for each spec in specs:
-    # Calculate minimum required by all following specs
-    later_min = sum(s.arity.min for s in specs[next_index:])
+3. **Initialize grouping state:**
+   - Create empty grouped dictionary
+   - Set remaining to full positionals tuple
 
-    # Calculate how many values are available for this spec
-    available = len(remaining) - later_min
+4. **Process each positional specification in order:**
 
-    # Determine how many values to consume
-    if spec.arity.max is None:  # Unbounded
-        to_consume = max(0, available)
-    else:  # Bounded
-        to_consume = min(spec.arity.max, available)
+   For each spec at index i:
 
-    # Validate minimum requirement
-    if to_consume < spec.arity.min:
-        raise InsufficientValuesError
+   - **Calculate later needs:**
+     - `later_min = sum(s.arity.min for s in specs[i+1:])`
+     - This is the minimum arguments required by all following specs
 
-    # Extract values and create ParsedPositional
-    values = remaining[:to_consume]
+   - **Calculate available values:**
+     - `available = len(remaining) - later_min`
+     - This is how many values can be consumed while leaving enough for later specs
 
-    # Determine value type
-    if spec.arity == (1, 1):
-        parsed_value = values[0]  # Single string
-    else:
-        parsed_value = tuple(values)  # Tuple of strings
+   - **Determine consumption amount:**
+     - If `spec.arity.max` is None (unbounded):
+       - `to_consume = max(0, available)`
+       - Greedy: consume all available after reserving for later specs
+     - Otherwise (bounded):
+       - `to_consume = min(spec.arity.max, available)`
+       - Consume up to maximum, constrained by availability
 
-    grouped[spec.name] = ParsedPositional(name=spec.name, value=parsed_value)
-    remaining = remaining[to_consume:]
+   - **Validate minimum requirement:**
+     - If `to_consume < spec.arity.min`:
+       - Raise `InsufficientValuesError`
 
-return grouped
-```
+   - **Extract values:**
+     - `values = remaining[:to_consume]`
+
+   - **Determine result type:**
+     - If `spec.arity == (1, 1)`:
+       - `parsed_value = values[0]` (single string)
+     - Otherwise:
+       - `parsed_value = tuple(values)` (tuple of strings)
+
+   - **Store grouped positional:**
+     - `grouped[spec.name] = ParsedPositional(name=spec.name, value=parsed_value)`
+
+   - **Update remaining:**
+     - `remaining = remaining[to_consume:]`
+
+5. **Return grouped dictionary:**
+   - Return dictionary mapping spec names to ParsedPositional values
 
 ### Later needs calculation
 
@@ -706,7 +824,7 @@ The command specification for this example defines:
 - Command name: "deploy"
 - Flag option "verbose" with short name "v" and COUNT accumulation mode
 - Value option "environment" with short name "e" and arity (1, 1)
-- Value option "tags" with short name "t", arity (1, None), and EXTEND accumulation mode
+- Value option "tags" with short name "t," arity (1, None), and EXTEND accumulation mode
 - Flag option "dry-run" with negation prefix "no"
 - Positional "service" with arity (1, 1)
 - Positional "regions" with arity (1, None)
@@ -732,7 +850,7 @@ deploy -vv --environment=staging -t version:1.2 owner:team-a --no-dry-run api-se
 **Position 1: `--environment=staging`** (long option with inline value)
 
 - Classification: Long option
-- Split: option_name="environment", inline_value="staging"
+- Split: option_name="environment," inline_value="staging"
 - Resolution: matches ValueOptionSpecification for "environment"
 - Value consumption: inline_value provides one value, arity=(1,1) satisfied
 - Result: options["environment"] = ParsedOption(value="staging")
@@ -742,13 +860,13 @@ deploy -vv --environment=staging -t version:1.2 owner:team-a --no-dry-run api-se
 - Classification: Short option
 - Resolution: matches ValueOptionSpecification for "tags"
 - Value consumption from next_args:
-  - next_arg="version:1.2" (not option-like) → consume
-  - next_arg="owner:team-a" (not option-like) → consume
-  - next_arg="--no-dry-run" (starts with --) → stop
-  - values = ["version:1.2", "owner:team-a"]
+  - next_arg=`"version:1.2"` (not option-like) → consume
+  - next_arg=`"owner:team-a"` (not option-like) → consume
+  - next_arg=`"--no-dry-run"` (starts with --) → stop
+  - values = `["version:1.2", "owner:team-a"]`
   - arity=(1,None) satisfied (min=1 obtained)
-- Accumulation (EXTEND, first occurrence): value = ("version:1.2", "owner:team-a")
-- Result: options["tags"] = ParsedOption(value=("version:1.2", "owner:team-a"))
+- Accumulation (EXTEND, first occurrence): value = `("version:1.2", "owner:team-a")`
+- Result: options[`"tags"`] = ParsedOption(value=`("version:1.2", "owner:team-a")`)
 
 **Position 3: `--no-dry-run`** (negated flag)
 
@@ -763,18 +881,18 @@ deploy -vv --environment=staging -t version:1.2 owner:team-a --no-dry-run api-se
 **Position 4: `api-service`** (positional)
 
 - Classification: Not an option, not matching subcommands → positional
-- Collection: positionals = ("api-service")
+- Collection: positionals = `("api-service")`
 - Set positionals_started=True
 
 **Position 5: `us-east-1`** (positional)
 
 - Classification: Positional (positionals_started=True)
-- Collection: positionals = ("api-service", "us-east-1")
+- Collection: positionals = `("api-service", "us-east-1")`
 
 **Position 6: `eu-west-1`** (positional)
 
 - Classification: Positional (positionals_started=True)
-- Collection: positionals = ("api-service", "us-east-1", "eu-west-1")
+- Collection: positionals = `("api-service", "us-east-1", "eu-west-1")`
 
 **Position 7: `--`** (end-of-options delimiter)
 
@@ -788,7 +906,7 @@ deploy -vv --environment=staging -t version:1.2 owner:team-a --no-dry-run api-se
 
 ### Positional grouping
 
-Collected positionals: ["api-service", "us-east-1", "eu-west-1"]
+Collected positionals: `["api-service", "us-east-1", "eu-west-1"]`
 
 ```
 Processing "service" (arity=1, 1):
@@ -813,14 +931,14 @@ The parser produces a structured parse result containing:
 - Command: "deploy"
 - Alias used: None (canonical name used)
 - Options dictionary:
-  - "verbose" → value 2 (count of occurrences), alias "v"
-  - "environment" → value "staging", alias "environment"
-  - "tags" → value ("version:1.2", "owner:team-a"), alias "t"
-  - "dry-run" → value False (negated flag), alias "no-dry-run"
+  - `"verbose"` → value 2 (count of occurrences), alias `"v"`
+  - `"environment"` → value `"staging"`, alias `"environment"`
+  - `"tags"` → value `("version:1.2", "owner:team-a")`, alias `"t"`
+  - `"dry-run"` → value False (negated flag), alias `"no-dry-run"`
 - Positionals dictionary:
-  - "service" → value "api-service"
-  - "regions" → value ("us-east-1", "eu-west-1")
-- Trailing arguments: ("--extra",)
+  - `"service"` → value `"api-service"`
+  - `"regions"` → value `("us-east-1", "eu-west-1")`
+- Trailing arguments: `("--extra")`
 - Subcommand: None
 
 ## Option types and accumulation semantics
@@ -837,7 +955,7 @@ Flagrant defines three specialized option types, each inheriting from the base `
 
 The parser recognizes the option type through `isinstance` checks and applies type-specific accumulation and value handling logic.
 
-### Flags (FlagOptionSpecification)
+### Flags (flag option specification)
 
 Flags are boolean options that typically represent on/off switches or feature toggles. Flags do not consume values from the argument stream but can be repeated, negated, or counted.
 
@@ -908,7 +1026,7 @@ program -v --no-verbose -v
 - **COUNT mode**: Returns `int` (count of occurrences >= 0)
 - **ERROR mode**: Returns `bool` if only one occurrence exists
 
-### Values (ValueOptionSpecification)
+### Values (value option specification)
 
 Value options accept one or more string values from following arguments. Values are consumed according to arity constraints and accumulated according to the configured mode.
 
@@ -1003,7 +1121,7 @@ program --args --verbose --output file.txt
 - **All other cases**: Returns `tuple[str, ...]`
 - **APPEND mode with multi-value arity**: Returns `tuple[tuple[str, ...], ...]` (nested tuples)
 
-### Dictionaries (DictOptionSpecification)
+### Dictionaries (dictionary option specification)
 
 Dictionary options parse key-value pairs into structured dictionary values, supporting nested dictionaries and lists through specialized syntax.
 
@@ -1053,7 +1171,7 @@ program --env VAR1=value1 --env VAR2=value2
 
 When `accumulation_mode=DictAccumulationMode.MERGE`, the `merge_strategy` field controls merging behavior:
 
-**SHALLOW** - Performs shallow merge where only top-level keys are combined. If the same top-level key appears in multiple dictionaries, the last occurrence's value completely replaces earlier values:
+**SHALLOW** - Performs shallow merge where only top-level keys are combined. If the same top-level key appears in multiple dictionaries, the last occurrence's value replaces earlier values:
 
 ```bash
 # With MERGE mode and SHALLOW merge strategy:
@@ -1083,7 +1201,7 @@ Dictionary options support many per-option configuration fields:
 - `nesting_separator` - Character indicating nested keys (default `.`)
 - `dict_escape_character` - Character for escaping special characters in keys/values
 
-See `specs/parser/dictionary-parsing.md` for complete syntax and parsing algorithms.
+See the [dictionary parsing specification](dictionary-parsing.md) for complete syntax and parsing algorithms.
 
 #### Result shape
 
@@ -1184,15 +1302,17 @@ option = ValueOptionSpecification(
 )
 
 # Parsing
-parser = Parser(spec, config)
-result = parser.parse(["--threshold", "-5"])
+result = parse_command_line_args(spec, ["--threshold", "-5"], config)
 # threshold option uses its own allow_negative_numbers=True
 # Result: threshold = "-5"
 ```
 
-See `specs/parser/configuration.md` for complete configuration reference and `specs/parser/types.md` for option specification field definitions.
+See the [configuration specification](configuration.md) for complete configuration reference.
 
 ## Dictionary option value consumption
+
+!!! warning "Not yet implemented"
+    Dictionary option parsing with AST construction and structured merge semantics is planned but not yet fully implemented. The current parser treats dictionary option values as simple strings. The behavior described below represents the intended design.
 
 Dictionary options (`DictOptionSpecification`) apply standard value consumption rules with additional parsing and tree construction steps to transform key-value argument strings into structured dictionary values.
 
@@ -1207,7 +1327,7 @@ Value consumption for dictionary options proceeds as follows:
 5. **Construct dictionary**: Build final dictionary from AST using tree construction algorithm
 6. **Merge if needed**: If accumulation mode is MERGE, apply merge strategy to combine with existing dictionary
 
-The detailed algorithms for lexical analysis, path parsing, tree construction, and merging are specified in `specs/parser/dictionary-parsing.md`.
+The detailed algorithms for lexical analysis, path parsing, tree construction, and merging are specified in the [dictionary parsing specification](dictionary-parsing.md).
 
 ### Special handling
 
@@ -1234,7 +1354,7 @@ The parser recognizes dictionary options by their specification type and dispatc
 
 ### Parsing complexity
 
-**General complexity: O(n)** where n is the number of command-line arguments.
+**General complexity:** O(n) where n is the number of command-line arguments.
 
 The parser makes a single left-to-right pass through arguments without backtracking. The worst-case complexity is linear even with complex specifications.
 
@@ -1249,9 +1369,9 @@ The parser makes a single left-to-right pass through arguments without backtrack
 | Accumulation | O(1) per option | Tuple concatenation is O(k) but k is typically small |
 | Subcommand recursion | O(n) total | Each argument processed once across all recursion levels |
 
-**Worst case: O(n)** with no hidden quadratic behaviors, even with deep subcommand nesting or extensive option accumulation.
+**Worst case:** O(n) with no hidden quadratic behaviors, even with deep subcommand nesting or extensive option accumulation.
 
-**Space complexity: O(n)** for storing parsed results.
+**Space complexity:** O(n) for storing parsed results.
 
 ### Caching strategy
 
@@ -1271,20 +1391,19 @@ Using `frozenset` for name collections and `MappingProxyType` for dictionaries e
 
 ### Memory usage
 
-**Specification layer:** Fixed cost per spec (typically tens to hundreds of specs).
+**Specification layer:** fixed cost per spec (typically tens to hundreds of specs).
 
-**Parsing layer:** Parser instances are lightweight (primarily boolean flags and references).
+**Parsing layer:** parser instances are lightweight (primarily boolean flags and references).
 
-**Result layer:** Proportional to input size and spec structure. Parse results use tuples for values (more compact than lists) and dictionaries for efficient named access.
+**Result layer:** proportional to input size and spec structure. Parse results use tuples for values (more compact than lists) and dictionaries for efficient named access.
 
 ---
 
-**Related pages:**
+## See also
 
-- [Concepts](concepts.md) - Shared conceptual foundations (arity, accumulation modes)
-- [Parser overview](overview.md) - Design constraints and principles
-- [Parser grammar](grammar.md) - Syntax rules and argument classification
-- [Dictionary parsing](dictionary-parsing.md) - Key-value syntax and parsing algorithms
-- [Parser types](types.md) - Data structure definitions
-- [Parser configuration](configuration.md) - Configuration option details
-- [Parser errors](errors.md) - Exception types and validation rules
+- **[Concepts](concepts.md)**: Shared conceptual foundations (arity, accumulation modes)
+- **[Architecture](architecture.md)**: System architecture and design principles
+- **[Parser grammar](grammar.md)**: Syntax rules and argument classification
+- **[Dictionary parsing](dictionary-parsing.md)**: Key-value syntax and parsing algorithms
+- **[Parser configuration](configuration.md)**: Configuration option details
+- **[Parser errors](errors.md)**: Exception types and validation rules

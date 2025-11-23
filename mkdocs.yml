@@ -166,39 +166,27 @@ markdown_extensions:
 
 nav:
   - Home:
-      - overview.md
+      - index.md
       - license.md
-  - Tutorials:
-      - tutorials/index.md
-  - Guides:
-      - guides/index.md
   - Explanation:
       - explanation/index.md
+      - Concepts: explanation/concepts.md
       - Architecture: explanation/architecture.md
       - Grammar: explanation/grammar.md
       - Behavior: explanation/behavior.md
       - Configuration: explanation/configuration.md
-      - Types: explanation/types.md
-      - Dictionary Parsing: explanation/dictionary-parsing.md
-      - Argument Files: explanation/argument-files.md
+      - Dictionary parsing: explanation/dictionary-parsing.md
+      - Argument files: explanation/argument-files.md
       - Errors: explanation/errors.md
       - Testing: explanation/testing.md
-      - Comparisons:
-          - explanation/comparisons/index.md
-          - explanation/comparisons/argparse.md
-          - explanation/comparisons/click.md
-          - explanation/comparisons/cyclopts.md
-          - explanation/comparisons/typer.md
   - Reference:
       - reference/index.md
       - API:
           - reference/api/index.md
-          - flagrant: reference/api/flagrant.md
-          - flagrant.completions: reference/api/flagrant.completions.md
-          - flagrant.constants: reference/api/flagrant.constants.md
+          - flagrant.constraints: reference/api/flagrant.constraints.md
           - flagrant.enums: reference/api/flagrant.enums.md
           - flagrant.exceptions: reference/api/flagrant.exceptions.md
-          - flagrant.parsing: reference/api/flagrant.parsing.md
-          - flagrant.protocols: reference/api/flagrant.protocols.md
+          - flagrant.parser: reference/api/flagrant.parser.md
           - flagrant.specification: reference/api/flagrant.specification.md
           - flagrant.types: reference/api/flagrant.types.md
+      - Glossary: reference/glossary.md

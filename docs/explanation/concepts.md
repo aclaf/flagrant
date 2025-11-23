@@ -1,6 +1,8 @@
 # Shared concepts
 
-This page describes the core abstractions that underlie how Flagrant processes command-line arguments and generates shell completions. These concepts provide a common vocabulary used throughout Flagrant's documentation and APIs. While the concepts themselves are implementation-agnostic, we'll link to technical specifications where appropriate if you need implementation details.
+--8<-- "unreleased.md"
+
+This page describes the core abstractions that underlie how Flagrant processes command-line arguments. These concepts provide a common vocabulary used throughout the Flagrant documentation and APIs. While the concepts themselves are implementation-agnostic, this page links to technical specifications where appropriate if you need implementation details.
 
 ## Table of contents
 
@@ -22,14 +24,14 @@ A command specification is a declarative blueprint that describes the structure,
 
 ### What is a specification?
 
-A specification is an immutable data structure that captures all information needed to parse command-line arguments and generate shell completions for a command. Specifications are validated at construction time to ensure correctness before any parsing or completion generation occurs. This fail-fast validation approach catches configuration errors early, preventing runtime surprises.
+A specification is an immutable data structure that captures all information needed to parse command-line arguments for a command. Specifications are validated at construction time to ensure correctness before any parsing occurs. This fail-fast validation approach catches configuration errors early, preventing runtime surprises.
 
-The specification model serves as the single source of truth for CLI behavior. Both the parser and completer components consume the same specification objects, ensuring that parsing behavior and completion suggestions remain synchronized. When a specification defines an option with specific arity constraints, both the parser validates those constraints during parsing and the completer uses them to generate appropriate completion suggestions.
+The specification model serves as the single source of truth for parsing behavior. When a specification defines an option with specific arity constraints, the parser validates those constraints during parsing to ensure correct argument processing.
 
 ### Terminology note
 
 !!! tip "API names vs. shorthand"
-    Throughout Flagrant's documentation, you'll see both full API names and convenient shorthand. When reading code or API references, you'll always see the full names. In explanatory prose like this document, we use the shorter forms for readability.
+    Throughout the Flagrant documentation, you'll see both full API names and convenient shorthand. When reading code or API references, you'll always see the full names. In explanatory prose like this document, the documentation uses the shorter forms for readability.
 
 **Canonical API names** (use these in code):
 
@@ -39,7 +41,6 @@ The specification model serves as the single source of truth for CLI behavior. B
 - `DictOptionSpecification` - Options parsing key-value pairs into dictionaries
 - `PositionalSpecification` - Position-based parameters
 - `ParseResult` - Output from parsing operations
-- `CompletionResult` - Output from completion operations
 
 **Shorthand for prose** (you'll see these in explanations and discussions, but not in code):
 
@@ -64,8 +65,8 @@ Flagrant uses a three-tier option specification hierarchy to model different par
 **OptionSpecification (base class)** - The abstract base class that all option types inherit from. It defines the common attributes shared by all options:
 
 - `name`: The canonical name used to identify the option in parse results
-- `long_names`: Frozenset of long-form names (minimum one character) specified with `--` prefix
-- `short_names`: Frozenset of single-character names specified with `-` prefix
+- `long_names`: frozenset of long-form names (minimum one character) specified with `--` prefix
+- `short_names`: frozenset of single-character names specified with `-` prefix
 
 **FlagOptionSpecification** - Specialized for boolean flags that typically accept no values but can support negation and counting:
 
@@ -93,7 +94,7 @@ Each option type has its own accumulation mode enum tailored to that type's sema
 
 Option specs are immutable after construction and can be safely shared across multiple command specs. Common options like `--verbose` or `--config` can be defined once and reused throughout a command hierarchy. See [Specification immutability](#specification-immutability) for implications of this guarantee.
 
-For complete type definitions including all fields and validation rules, see the [parser types specification](types.md). For detailed dictionary parsing algorithms and syntax, see the [dictionary parsing specification](dictionary-parsing.md).
+For detailed dictionary parsing algorithms and syntax, see the [dictionary parsing specification](dictionary-parsing.md).
 
 ### Positional specs
 
@@ -107,7 +108,7 @@ When no positional specs are defined, the parser creates an implicit spec named 
 
 ### Specification validation
 
-All specs validate during construction, before any parsing or completion generation occurs. Validation checks ensure that specs are internally consistent and follow naming rules.
+All specs validate during construction, before any parsing occurs. Validation checks ensure that specs are internally consistent and follow naming rules.
 
 Name uniqueness requirements state that within a command, all option names (both long and short forms) must be unique. Similarly, subcommand names and aliases must be unique, and positional names must be unique. Name format rules require command names to start with an alphabetic character and may contain alphanumeric characters, dashes, and underscores. Option long names must be at least one character. Short names must be exactly one character. Positional names have minimal validation requirements since they primarily serve as identifiers in parse results.
 
@@ -121,8 +122,8 @@ Validation happens at two different times during your CLI application's lifecycl
 
 - `SpecificationError` - Base exception for all specification validation failures
 - `DuplicateNameError` - Raised when option names, subcommand names, or positional names conflict
-- `InvalidNameFormatError` - Raised when names violate format rules (e.g., empty long option name)
-- `InvalidArityError` - Raised when arity constraints are structurally invalid (e.g., min > max)
+- `InvalidNameFormatError` - Raised when names violate format rules (for example, empty long option name)
+- `InvalidArityError` - Raised when arity constraints are structurally invalid (for example, min > max)
 
 Construction-time validation raises specific errors for structural configuration problems: arity constraints where minimum exceeds maximum are invalid, empty option long names are invalid, and positional indices that conflict with existing specs are invalid.
 
@@ -136,8 +137,6 @@ Construction-time validation raises specific errors for structural configuration
 Parse-time validation catches cases where user input violates arity constraints: an option defined with arity constraint (2, 2) requiring exactly two values will raise an error if only one value is provided, with the error message identifying the option name, the required count, and the actual count received.
 
 This two-phase validation approach catches configuration errors early with detailed error messages that identify the specific constraint violation and conflicting names or values. By failing fast at construction time, you get immediate feedback while building your CLI's specification, rather than discovering problems later during actual parsing.
-
----
 
 ## Specification immutability
 
@@ -153,21 +152,19 @@ Immutability is enforced through construction-time validation combined with the 
 
 Because specs are immutable, they can be freely shared without defensive copying. A common option specification for a verbose flag can be defined once and included in dozens of different command specifications without risk of one command's modifications affecting others. This sharing reduces memory overhead and enables consistent behavior across commands that use the same option definitions.
 
-The parser and completer can safely maintain references to specs without worrying about external modifications. Internal caches built during parsing or completion generation remain valid for the lifetime of the spec, enabling performance optimizations that would be unsafe with mutable specifications.
+The parser can safely maintain references to specs without worrying about external modifications. Internal caches built during parsing remain valid for the lifetime of the spec, enabling performance optimizations that would be unsafe with mutable specifications.
 
 ### Caching and performance
 
-Immutability enables aggressive caching strategies. The parser can precompute resolution maps from option names to canonical option specifications during initialization, caching these maps for the entire parse session. The completer can generate static completion candidates from spec metadata without concern that the underlying spec might change between completion requests.
+Immutability enables aggressive caching strategies. The parser can precompute resolution maps from option names to canonical option specifications during initialization, caching these maps for the entire parse session.
 
-Validation results can be cached indefinitely. Once a spec passes validation at construction time, no re-validation is ever needed. Derived computations like negated option names (generated by prepending negation words and separators during spec initialization) can be computed once and stored, eliminating redundant work on every parse or completion invocation.
+Validation results can be cached indefinitely. Once a spec passes validation at construction time, no re-validation is ever needed. Derived computations like negated option names (generated by prepending negation words and separators during spec initialization) can be computed once and stored, eliminating redundant work on every parse invocation.
 
 ### How immutability affects validation
 
 Immutability determines when validation can happen. All structural validation happens at construction time because the spec never changes after creation—there's no opportunity to validate later. This gives you immediate feedback when defining your CLI interface, catching errors right at the point of definition rather than discovering them during runtime parsing.
 
 Parse-time validation then focuses exclusively on user input, not spec configuration. The parser knows that all specs are internally consistent, so it only needs to check whether the user's arguments satisfy the spec's constraints, not whether the specs themselves are valid.
-
----
 
 ## Specification composition
 
@@ -209,8 +206,6 @@ When a `CommandSpec` contains subcommands, validation ensures that subcommand na
 
 Validation does not prevent subcommand names from matching parent command option names or positional values because the parsing context makes these unambiguous. An option name and a subcommand name can coincide without conflict since the parser knows whether it's processing an option value or looking for a subcommand based on parsing state.
 
----
-
 ## Arity
 
 Arity defines how many values a parameter (option or positional) accepts. It specifies both a minimum and maximum count, allowing precise control over value consumption and enabling meaningful validation of user input.
@@ -231,9 +226,9 @@ The minimum component tells you the minimum number of values required. If fewer 
 
 Several arity patterns occur frequently in command-line interfaces and carry conventional semantics:
 
-Flags with arity `(0, 0)` represent boolean options that accept no values. When present, the flag is true; when absent, false. Examples include `--verbose`, `--debug`, and `--help`. Required single value options with arity `(1, 1)` form the most common pattern for options requiring exactly one value. Examples include `--output file.txt`, `--config app.yaml`, and `--port 8080`. Optional single value options with arity `(0, 1)` can appear without a value or with one value, with the parser using a constant value when no value is provided. Examples include `--color` (defaults to "auto") and `--optimize` (defaults to highest level).
+Flags with arity `(0, 0)` represent boolean options that accept no values. When present, the flag is true; when absent, false. Examples include `--verbose`, `--debug`, and `--help`. Required single value options with arity `(1, 1)` form the most common pattern for options requiring exactly one value. Examples include `--output file.txt`, `--config app.yaml`, and `--port 8080`. The optional single value pattern with arity `(0, 1)` can appear without a value or with one value, with the parser using a constant value when no value is provided. Examples include `--color` (defaults to "auto") and `--optimize` (defaults to highest level).
 
-Required variable length parameters with arity `(1, None)` require at least one value but accept many, useful for collecting lists. Examples include `--input file1 file2 file3` and `--define KEY1=VAL1 KEY2=VAL2`. Optional variable length parameters with arity `(0, None)` are optional but can accept many values when provided. Examples include `--include pattern1 pattern2` and variadic positional arguments for extra files.
+Required variable length parameters with arity `(1, None)` require at least one value but accept many, useful for collecting lists. Examples include `--input file1 file2 file3` and `--define KEY1=VAL1 KEY2=VAL2`. The optional variable length pattern with arity `(0, None)` is optional but can accept many values when provided. Examples include `--include pattern1 pattern2` and variadic positional arguments for extra files.
 
 Exact count parameters with arity `(n, n)` require a specific number of values. Examples include `--coordinate 10 20` (exactly 2) and `--rgb 255 128 0` (exactly 3). Bounded range parameters with arity `(min, max)` accept a range of values. Examples include `--range 1 100` (1 or 2 values for start and optional end) and `--names alice bob charlie` (2 to 4 names).
 
@@ -243,7 +238,7 @@ For unbounded arity patterns where `max` is `None`, the `greedy` parameter contr
 
 **Non-greedy unbounded arity** (`greedy=False`) - The default behavior for unbounded options. The parser consumes values until encountering a stopping condition: another option (arguments starting with `-`), a subcommand name, the end-of-options delimiter `--`, or the end of the argument sequence. This mode respects natural command-line boundaries and allows other options and positionals to follow.
 
-Optional non-greedy unbounded with arity `(0, None)` and `greedy=False` consumes zero or more values until hitting a boundary:
+The optional non-greedy unbounded pattern with arity `(0, None)` and `greedy=False` consumes zero or more values until hitting a boundary:
 
 ```bash
 program --include *.txt --verbose
@@ -267,7 +262,7 @@ program --files
 
 **Greedy unbounded arity** (`greedy=True`) - Forces the parser to consume ALL remaining arguments in the sequence, regardless of whether they look like options or subcommands. This mode is useful for wrapper commands that pass arbitrary arguments to subprocesses, or for collecting all remaining inputs without interpretation.
 
-Optional greedy unbounded with arity `(0, None)` and `greedy=True` consumes everything that follows:
+The optional greedy unbounded pattern with arity `(0, None)` and `greedy=True` consumes everything that follows:
 
 ```bash
 program --args --verbose --output file.txt
@@ -311,7 +306,7 @@ See the [parser behavior specification](behavior.md) for the complete value cons
 
 ### Conceptual value consumption
 
-Arity defines constraints that components use to determine valid value counts. The parser enforces these constraints during value consumption; the completer uses them to suggest appropriate completions. The fundamental principle is that parameters consume values up to their maximum arity while ensuring minimum requirements are met, stopping when encountering boundaries like other options, subcommands, or argument sequence termination.
+Arity defines constraints that the parser uses to determine valid value counts. The parser enforces these constraints during value consumption. The fundamental principle is that parameters consume values up to their maximum arity while ensuring minimum requirements are met, stopping when encountering boundaries like other options, subcommands, or argument sequence termination.
 
 The detailed algorithm for value consumption, including stopping conditions for option-like arguments, subcommand names, and special markers like `--` and `-`, is specified in the [parser behavior specification](behavior.md). That specification covers precise behaviors for edge cases like negative numbers as positional values and the interaction between strict mode and value consumption.
 
@@ -319,9 +314,7 @@ The detailed algorithm for value consumption, including stopping conditions for 
 
 Arity patterns influence result structure in the parser's output. Single-value parameters (where `min == max == 1` and accumulation mode is first-wins or last-wins) naturally map to scalar results. Multi-value parameters (where `max > 1` or `max` is None) naturally map to collections. Flags with arity `(0, 0)` naturally map to booleans. Counters (flags with COUNT accumulation mode) naturally map to integers representing occurrence counts.
 
-The specific Python types used in parse results—whether strings, tuples, booleans, or integers—are detailed in the [parser types specification](types.md). The conceptual relationship between arity patterns and result structure remains consistent: single-value parameters yield scalar results, multi-value parameters yield collection results, flags yield boolean results, and counters yield integer results.
-
----
+The conceptual relationship between arity patterns and result structure remains consistent: single-value parameters yield scalar results, multi-value parameters yield collection results, flags yield boolean results, and counters yield integer results.
 
 ## Accumulation modes
 
@@ -543,8 +536,6 @@ Selecting the appropriate accumulation mode depends on the option type and seman
 - Use APPEND when maintaining separate dictionaries is important
 - Use ERROR when multiple dictionary specifications indicate user error
 
----
-
 ## Option resolution
 
 Option resolution is the process of matching user-provided option names to their canonical option specs. The parser must support multiple resolution strategies including exact matching, alias resolution, abbreviation matching, negation resolution, case-insensitive matching, and underscore-to-dash normalization.
@@ -563,19 +554,19 @@ This compositional design lets you configure parsers for different CLI conventio
 
 ### Exact matching
 
-Exact matching is the baseline resolution strategy, always enabled and checked first. The user-provided option name must exactly match an option's long or short name character-for-character (subject to case sensitivity and normalization settings). When an option defines long name "verbose" and short name "v", both `--verbose` and `-v` match via exact matching. The parser strips leading dashes before comparing, so `--verbose` becomes "verbose" for matching purposes, and `-v` becomes "v".
+Exact matching is the baseline resolution strategy, always enabled and checked first. The user-provided option name must exactly match an option's long or short name character-for-character (subject to case sensitivity and normalization settings). When an option defines long name "verbose" and short name "v," both `--verbose` and `-v` match via exact matching. The parser strips leading dashes before comparing, so `--verbose` becomes "verbose" for matching purposes, and `-v` becomes "v."
 
-Exact matching includes all defined aliases. If an option has long names ("recursive", "recurse", "r"), all three match exactly with equal priority. The canonical option name (from the option spec's name field) identifies the option in parse results, while the specific alias the user provided is preserved for reference.
+Exact matching includes all defined aliases. If an option has long names ("recursive," "recurse," "r"), all three match exactly with equal priority. The canonical option name (from the option spec's name field) identifies the option in parse results, while the specific alias the user provided is preserved for reference.
 
 ### Alias resolution
 
-Options can have multiple long names and multiple short names, all functioning as aliases that resolve to the same canonical option. Aliases provide alternative ways to specify the option, improving usability and backward compatibility. All aliases have equal priority in exact matching. There is no concept of "primary" versus "secondary" aliases; the parser treats all defined names identically during resolution. When an option has long names ("verbose", "v") and the user provides `--v`, the parser matches via exact alias resolution, not abbreviation.
+Options can have multiple long names and multiple short names, all functioning as aliases that resolve to the same canonical option. Aliases provide alternative ways to specify the option, improving usability and backward compatibility. All aliases have equal priority in exact matching. The parser treats all defined names identically during resolution—there is no concept of "primary" versus "secondary" aliases. When an option has long names ("verbose," "v") and the user provides `--v`, the parser matches via exact alias resolution, not abbreviation.
 
 The parse result must preserve both the canonical option name and the specific alias the user provided. This allows applications to track which variant users prefer while maintaining a consistent canonical identifier for the option across all occurrences.
 
 ### Abbreviation resolution
 
-Abbreviation resolution allows users to type a prefix of an option name instead of the full name, as long as the prefix uniquely identifies the option. This feature is disabled by default and must be explicitly enabled through parser configuration. When abbreviation matching is enabled with a minimum abbreviation length (default 3 characters), the parser accepts any unambiguous prefix of an option name. For options "verbose", "version", and "verify", the abbreviation "verb" uniquely matches "verbose", while "ver" is ambiguous and produces an error listing all matching candidates.
+Abbreviation resolution allows users to type a prefix of an option name instead of the full name, as long as the prefix uniquely identifies the option. This feature is disabled by default and must be explicitly enabled through parser configuration. When abbreviation matching is enabled with a minimum abbreviation length (default 3 characters), the parser accepts any unambiguous prefix of an option name. For options "verbose," "version," and "verify," the abbreviation "verb" uniquely matches "verbose," while "ver" is ambiguous and produces an error listing all matching candidates.
 
 Abbreviation matching operates against all valid names, including long forms, short forms, and aliases. If an option has aliases, users can abbreviate any of them. The parser uses prefix matching to find all option names that start with the provided abbreviation, raising an ambiguity error if multiple matches exist. The minimum abbreviation length prevents accidentally matching single-character prefixes that are likely to be ambiguous. A minimum length of 3 requires users to type at least three characters, reducing accidental matches while still providing substantial typing savings for long option names.
 
@@ -583,9 +574,9 @@ Abbreviation matching operates against all valid names, including long forms, sh
 
 Boolean flag options can support negation through two mechanisms: prefix words for long names and explicit short names for short forms.
 
-**Negation prefixes** create negated long-form variants by prepending words to the flag's long names. An option "verbose" with negation prefix "no" accepts both `--verbose` (sets to true) and `--no-verbose` (sets to false). Multiple negation prefixes can be defined, creating multiple negated forms: negation prefixes ("no", "disable") create `--no-verbose` and `--disable-verbose`.
+**Negation prefixes** create negated long-form variants by prepending words to the flag's long names. An option "verbose" with negation prefix "no" accepts both `--verbose` (sets to true) and `--no-verbose` (sets to false). You can define multiple negation prefixes, creating multiple negated forms: negation prefixes ("no," "disable") create `--no-verbose` and `--disable-verbose`.
 
-The parser generates negated names for all long forms during spec initialization by prepending negation prefixes and separators (typically dashes). If a flag has long names ("color", "colour") with negation prefix "no", the parser accepts `--color`, `--colour`, `--no-color`, and `--no-colour`. When the user-provided name starts with a known negation prefix followed by a separator, the parser strips the prefix, matches the remaining name against flag long names, and sets the flag to false instead of true.
+The parser generates negated names for all long forms during spec initialization by prepending negation prefixes and separators (typically dashes). If a flag has long names ("color," "colorize") with negation prefix "no," the parser accepts `--color`, `--colorize`, `--no-color`, and `--no-colorize`. When the user-provided name starts with a known negation prefix followed by a separator, the parser strips the prefix, matches the remaining name against flag long names, and sets the flag to false instead of true.
 
 **Negation short names** provide independent short options that explicitly negate the flag. Unlike negation prefixes which modify long names, negation short names are separate short options defined alongside the flag's regular short names. If a flag has short name "v" (sets to true) and negation short name "q" (sets to false), then `-v` sets the flag to true and `-q` sets it to false. These are distinct short options, not prefix-based transformations.
 
@@ -595,7 +586,7 @@ This dual mechanism enables flexible negation patterns: long forms use prefix-ba
 
 By default, option matching is case-sensitive: `--verbose` differs from `--Verbose` or `--VERBOSE`. The parser supports case-insensitive matching through configuration, which is particularly useful for Windows-style command-line interfaces where case-insensitive conventions are common. When case-insensitive matching is enabled, the parser normalizes all option names to lowercase during spec construction and during argument parsing. This allows `--verbose`, `--Verbose`, `--VERBOSE`, and any other case variation to match the same option spec.
 
-Canonical option names are preserved as defined in the spec regardless of the case used by the user. If an option's canonical name is "verbose" and the user provides `--VERBOSE`, the parse result contains the canonical name "verbose" while the alias field reflects the exact user input "VERBOSE". Case normalization applies to all resolution strategies including exact matching, alias matching, abbreviation matching, and negation matching. When abbreviations are enabled with case-insensitive matching, the prefix comparison occurs after case normalization.
+Canonical option names are preserved as defined in the spec regardless of the case used by the user. If an option's canonical name is "verbose" and the user provides `--VERBOSE`, the parse result contains the canonical name "verbose" while the alias field reflects the exact user input "VERBOSE." Case normalization applies to all resolution strategies including exact matching, alias matching, abbreviation matching, and negation matching. When abbreviations are enabled with case-insensitive matching, the prefix comparison occurs after case normalization.
 
 ### Underscore and dash conversion
 
@@ -610,8 +601,6 @@ The conversion is bidirectional: options defined with dashes can be specified wi
     - `minimum_abbreviation_length` - Minimum characters required for abbreviations (default: 3)
     - `convert_underscores_to_dashes` - Enable underscore-dash normalization
     - Negation handling via `FlagOptionSpecification.negation_prefixes` and `negation_short_names`
-
----
 
 ## Positional arguments
 
@@ -687,9 +676,10 @@ When a command spec defines no positional specs, the parser automatically create
 
 The implicit spec ensures that positional arguments are never lost, even when not explicitly configured. Applications can always access positionals under the "args" key without checking whether positional specs were defined. Commands that do not need sophisticated positional handling benefit from this sensible default. The parser creates the implicit spec dynamically when the positional specs collection is empty or undefined. This provides a consistent interface for accessing positionals regardless of whether they were explicitly specified or implicitly captured.
 
----
-
 ## Dictionary options
+
+!!! warning "Not yet implemented"
+    Dictionary option parsing with AST construction and structured merge semantics is planned but not yet fully implemented. The current parser treats dictionary option values as simple strings. The features described in this section represent the intended design and will be added in a future release.
 
 Dictionary options enable users to specify structured key-value data through command-line arguments, supporting both flat dictionaries and arbitrarily nested structures with lists. This feature allows passing configuration directly on the command line using syntax patterns familiar from tools like Helm, AWS CLI, and kubectl.
 
@@ -699,7 +689,7 @@ For complete dictionary parsing algorithms, syntax specification, and detailed e
 
 A dictionary option is a specialized option type that parses command-line arguments as key-value pairs and constructs dictionary structures. Unlike value options which treat each argument as an independent string, dictionary options interpret arguments with special syntax to build nested data.
 
-You define dictionary options using `DictOptionSpecification`, which inherits from `OptionSpecification` in the three-tier option hierarchy alongside `FlagOptionSpecification` and `ValueOptionSpecification`. The parser recognizes dictionary options through their specification type and applies dictionary-specific parsing algorithms. See the [parser types specification](types.md) for complete `DictOptionSpecification` field definitions and the [dictionary parsing specification](dictionary-parsing.md) for detailed parsing algorithms.
+You define dictionary options using `DictOptionSpecification`, which inherits from `OptionSpecification` in the three-tier option hierarchy alongside `FlagOptionSpecification` and `ValueOptionSpecification`. The parser recognizes dictionary options through their specification type and applies dictionary-specific parsing algorithms. See the [dictionary parsing specification](dictionary-parsing.md) for detailed parsing algorithms.
 
 ### Basic dictionary syntax
 
@@ -716,7 +706,7 @@ command --config equation="x=y+z"
 # Produces: {"equation": "x=y+z"}
 ```
 
-Multiple key-value pairs can be specified through repeated option flags or as space-separated arguments:
+You can specify multiple key-value pairs through repeated option flags or as space-separated arguments:
 
 ```bash
 # Repeated option pattern
@@ -740,7 +730,7 @@ command --config database.connection.timeout=30
 # Produces: {"database": {"connection": {"timeout": "30"}}}
 ```
 
-Multiple nested paths can be specified, with the parser automatically creating intermediate dictionary levels as needed:
+You can specify multiple nested paths, with the parser automatically creating intermediate dictionary levels as needed:
 
 ```bash
 command --config \
@@ -852,29 +842,23 @@ Separator and escape character fields control the specific characters used for p
 - **`item_separator`**: Separates multiple pairs in single argument (default: None, inherits from global configuration)
 - **`escape_character`**: Escapes special characters (default: `\\`, inherits from global configuration)
 
-See the [parser types specification](types.md) for the complete `DictOptionSpecification` field reference and validation rules.
-
 ### How dictionary parsing works
 
 The parser transforms dictionary argument strings into structured dictionary values through lexical analysis, syntactic analysis, abstract syntax tree construction, and tree building phases. The complete algorithms including tokenization, path parsing, value consumption, merging strategies, and error handling are specified in the [dictionary parsing specification](dictionary-parsing.md).
 
 Key aspects of dictionary parsing include:
 
-- **Lexical analysis**: Tokenizes input strings, recognizing identifiers, separators, brackets, and escape sequences
+- **Lexical analysis**: tokenizes input strings, recognizing identifiers, separators, brackets, and escape sequences
 - **Path parsing**: Parses dot-separated keys and bracket-indexed lists into path segments
 - **Tree construction**: Builds nested dictionary and list structures from parsed assignments
 - **Merging**: Combines dictionaries according to accumulation mode and merge strategy
 - **Validation**: Enforces structural constraints and detects conflicts
 
-### Integration with parser and completer
+### Integration with parser
 
-Dictionary options integrate seamlessly with the parser and completer components. The parser recognizes `DictOptionSpecification` and applies dictionary-specific value consumption and accumulation algorithms. Parse results contain dictionary values with type `dict[str, DictValue]` or `tuple[dict[str, DictValue], ...]` depending on accumulation mode, where `DictValue` is a recursive type supporting strings, nested dictionaries, and lists.
+Dictionary options integrate seamlessly with the parser. The parser recognizes `DictOptionSpecification` and applies dictionary-specific value consumption and accumulation algorithms. Parse results contain dictionary values with type `dict[str, DictValue]` or `tuple[dict[str, DictValue], ...]` depending on accumulation mode, where `DictValue` is a recursive type supporting strings, nested dictionaries, and lists.
 
-The completer generates context-aware completion suggestions for dictionary options, completing keys, values, and nested structures. When typing a key-value pair, the completer suggests valid key names and value patterns based on the dictionary specification and previously entered keys.
-
-See the [parser behavior specification](behavior.md) for how dictionary options interact with general parsing behavior, the [parser types specification](types.md) for dictionary value type definitions, and the [completion algorithm specification](completions/algorithm.md) for dictionary-specific completion generation.
-
----
+See the [parser behavior specification](behavior.md) for how dictionary options interact with general parsing behavior.
 
 ## Argument files
 
@@ -892,7 +876,7 @@ A simple line-based format treats each non-empty, non-comment line as a single a
 
 ### Understanding precedence and composition
 
-Since argument files expand inline, their position determines precedence. Arguments you specify directly on the command line after an argument file override values from that file (last-wins semantics). The invocation `app @base.args --output=custom.txt` uses the command-line output value even if `base.args` specifies a different output. Multiple argument files process in order: `app @base.args @overrides.args` applies base configuration first, then overrides.
+Since argument files expand inline, their position determines precedence. Arguments you specify directly on the command line after an argument file override values from that file (last-wins semantics). The invocation `app @base.args --output=custom.txt` uses the command-line output value even if `base.args` specifies a different output. The parser processes multiple argument files in order: `app @base.args @overrides.args` applies base configuration first, then overrides.
 
 ### How argument files integrate
 
@@ -900,8 +884,8 @@ Argument file expansion is a preprocessing transformation that runs before norma
 
 You can control argument file behavior through several configuration options: `argument_file_prefix` (character triggering expansion, default `@`), `argument_file_format` (line-based or shell-style), `argument_file_comment_char` (comment prefix, default `#`), and `max_argument_file_depth` (recursion limit if supported). Setting the prefix to `None` disables the feature entirely.
 
-!!! info "Completion behavior"
-    The completer detects tokens beginning with `argument_file_prefix` and suggests file path completions while preserving the prefix in all suggestions (e.g., `@config.yaml`, not `config.yaml`). The completer only suggests paths—it never expands `@file` references. Expansion is exclusively the parser's responsibility during actual argument processing. This separation ensures completion remains fast (no file I/O) while maintaining consistency: the completer uses the same prefix configuration as the parser so suggestions match what the parser accepts.
+!!! note "Shell completions in Aclaf"
+    Shell completion for argument files (suggesting `@config.yaml` when the user types `@`) will be handled by Aclaf, not Flagrant. The Flagrant parser is responsible only for expanding argument file references during parsing.
 
 ### Error handling
 
@@ -913,12 +897,9 @@ See the [argument files specification](argument-files.md) for complete syntax sp
 
 ---
 
-## Related documentation
+## See also
 
-For more detailed technical information, see these references:
-
-- [Parser behavior](behavior.md) - Complete value consumption algorithm and positional grouping details
-- [Dictionary parsing specification](dictionary-parsing.md) - Complete dictionary parsing algorithms and syntax
-- [Parser types specification](types.md) - Parse result types, `DictOptionSpecification`, and Python type mappings
-- [Parser configuration](configuration.md) - Parser configuration options and resolution strategies
-- [Argument files specification](argument-files.md) - Complete argument file syntax and processing semantics
+- **[Parser behavior](behavior.md)**: Complete value consumption algorithm and positional grouping details
+- **[Dictionary parsing specification](dictionary-parsing.md)**: Complete dictionary parsing algorithms and syntax
+- **[Parser configuration](configuration.md)**: Parser configuration options and resolution strategies
+- **[Argument files specification](argument-files.md)**: Complete argument file syntax and processing semantics

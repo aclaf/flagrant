@@ -1,9 +1,9 @@
-# `flagrant.exceptions`
+# `flagrant.constraints`
 
 --8<-- "unreleased.md"
 
 <!-- vale off -->
 
-::: flagrant.exceptions
+::: flagrant.constraints
 
 <!-- vale on -->

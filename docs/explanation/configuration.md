@@ -1,5 +1,7 @@
 # Parser configuration
 
+--8<-- "unreleased.md"
+
 This page documents the parser configuration model in Flagrant. It explains the available configuration options, their defaults, and how they influence parsing behavior. It also describes how configuration can be overridden at the command and option level for fine-grained control.
 
 ## Table of contents
@@ -14,6 +16,8 @@ This page documents the parser configuration model in Flagrant. It explains the 
 - [Configuration interactions](#configuration-interactions)
 - [Preset configurations](#preset-configurations)
 - [Configuration validation](#configuration-validation)
+
+---
 
 ## Overview
 
@@ -31,7 +35,7 @@ The parser configuration includes the following 26 properties with their default
 
 **Positional argument handling:**
 
-- `strict_options_before_positionals: bool = False` - Enforce POSIX-style ordering
+- `strict_posix_options: bool = False` - Enforce POSIX-style ordering
 - `allow_negative_numbers: bool = True` - Recognize negative numbers as values
 - `negative_number_pattern: str = DEFAULT_NEGATIVE_NUMBER_PATTERN` - Custom regex for negative number detection
 
@@ -122,7 +126,7 @@ from flagrant import Configuration, Parser, CommandSpecification, ValueOptionSpe
 from flagrant.types import Arity
 
 # Global configuration disallows negative numbers
-config = Configuration(
+config = ParserConfiguration(
     allow_negative_numbers=False,  # Global setting
     value_item_separator=',',
 )
@@ -146,36 +150,32 @@ spec = CommandSpecification(
     ),
 )
 
-parser = Parser(spec, config)
 
 # "threshold" option allows negative numbers despite global setting
-result = parser.parse(["--threshold", "-5"])
+result = parse_command_line_args(spec, ["--threshold", "-5"])
 # result.options["threshold"].value == "-5"
 
 # "count" option respects global setting
-result = parser.parse(["--count", "-5"])
+result = parse_command_line_args(spec, ["--count", "-5"])
 # Raises error: "-5" classified as short option cluster, not value
 ```
 
-See `specs/parser/behavior.md` for detailed algorithms showing how per-option overrides affect parsing, and `specs/parser/types.md` for complete option specification field definitions.
+See the [parser behavior specification](behavior.md) for detailed algorithms showing how per-option overrides affect parsing.
 
 ## Positional mode configuration
 
-The `strict_options_before_positionals` flag controls the fundamental parsing style: GNU-style flexible parsing (default) or POSIX-style ordering.
+The `strict_posix_options` flag controls the fundamental parsing style: GNU-style flexible parsing (default) or POSIX-style ordering.
 
 ### Flexible positional mode (default)
 
-**Configuration:** `strict_options_before_positionals=False`
+**Configuration:** `strict_posix_options=False`
 
 In flexible mode, options and positional arguments can appear in any order. The parser recognizes options anywhere in the argument list, regardless of position relative to positionals.
 
-```python
-parser = Parser(spec, strict_options_before_positionals=False)
-
-# All valid - options can appear anywhere
-result = parser.parse(["--verbose", "file.txt", "--output", "result.txt"])
-result = parser.parse(["file.txt", "--verbose", "--output", "result.txt"])
-result = parser.parse(["file.txt", "result.txt", "--verbose", "--output"])
+```python# All valid - options can appear anywhere
+result = parse_command_line_args(spec, ["--verbose", "file.txt", "--output", "result.txt"])
+result = parse_command_line_args(spec, ["file.txt", "--verbose", "--output", "result.txt"])
+result = parse_command_line_args(spec, ["file.txt", "result.txt", "--verbose", "--output"])
 ```
 
 **When to use:**
@@ -193,19 +193,16 @@ result = parser.parse(["file.txt", "result.txt", "--verbose", "--output"])
 
 ### POSIX-style ordering mode
 
-**Configuration:** `strict_options_before_positionals=True`
+**Configuration:** `strict_posix_options=True`
 
 When POSIX-style ordering is enabled, all options must precede all positional arguments. Once the parser encounters the first positional argument, it stops recognizing option patterns and treats all subsequent arguments as positionals—even if they structurally look like options.
 
-```python
-parser = Parser(spec, strict_options_before_positionals=True)
-
-# Valid - options before positionals
-result = parser.parse(["--verbose", "--output", "result.txt", "file.txt"])
+```python# Valid - options before positionals
+result = parse_command_line_args(spec, ["--verbose", "--output", "result.txt", "file.txt"])
 
 # Invalid - option after positional
 try:
-    result = parser.parse(["file.txt", "--verbose"])
+    result = parse_command_line_args(spec, ["file.txt", "--verbose"])
     # "--verbose" is treated as a positional argument
     # UnexpectedPositionalArgumentError if no positional accepts it
 except UnexpectedPositionalArgumentError:
@@ -249,18 +246,14 @@ spec = CommandSpecification(
         OptionSpecification(name="version", long_names=("version",)),
         OptionSpecification(name="verify", long_names=("verify",)),
     ),
-)
-
-parser = Parser(spec, allow_abbreviated_options=True)
-
-# Unambiguous abbreviations work
-result = parser.parse(["--verb"])    # Matches "verbose"
-result = parser.parse(["--vers"])    # Matches "version"
-result = parser.parse(["--veri"])    # Matches "verify"
+)# Unambiguous abbreviations work
+result = parse_command_line_args(spec, ["--verb"])    # Matches "verbose"
+result = parse_command_line_args(spec, ["--vers"])    # Matches "version"
+result = parse_command_line_args(spec, ["--veri"])    # Matches "verify"
 
 # Ambiguous abbreviations raise error
 try:
-    parser.parse(["--ver"])  # Ambiguous: verbose, version, verify
+    parse_command_line_args(spec, ["--ver"])  # Ambiguous: verbose, version, verify
 except AmbiguousOptionError as e:
     print(e.candidates)  # ["verbose", "version", "verify"]
 ```
@@ -305,13 +298,9 @@ spec = CommandSpecification(
         CommandSpecification(name="checkout"),
         CommandSpecification(name="cherry-pick"),
     ),
-)
-
-parser = Parser(spec, allow_abbreviated_subcommands=True)
-
-result = parser.parse(["com"])      # Matches "commit"
-result = parser.parse(["chec"])     # Matches "checkout"
-result = parser.parse(["cher"])     # Matches "cherry-pick"
+)result = parse_command_line_args(spec, ["com"])      # Matches "commit"
+result = parse_command_line_args(spec, ["chec"])     # Matches "checkout"
+result = parse_command_line_args(spec, ["cher"])     # Matches "cherry-pick"
 ```
 
 **Practical consideration:** Subcommand abbreviation is particularly valuable in interactive contexts but creates risk in scripts. Many users disable this in production CLIs while enabling it in development tools.
@@ -322,19 +311,12 @@ result = parser.parse(["cher"])     # Matches "cherry-pick"
 
 Specifies the minimum number of characters required for an abbreviation to be considered valid. This prevents overly short abbreviations that are likely to become ambiguous or result from typos.
 
-```python
-parser = Parser(
-    spec,
-    allow_abbreviated_options=True,
-    minimum_abbreviation_length=5,
-)
-
-# Valid - 5 characters (meets minimum)
-result = parser.parse(["--verbo"])
+```python# Valid - 5 characters (meets minimum)
+result = parse_command_line_args(spec, ["--verbo"])
 
 # Invalid - 4 characters (below minimum)
 try:
-    parser.parse(["--verb"])  # Rejected even if unambiguous
+    parse_command_line_args(spec, ["--verb"])  # Rejected even if unambiguous
 except UnknownOptionError:
     pass
 ```
@@ -371,17 +353,13 @@ spec = CommandSpecification(
     ),
 )
 
-# Aliases enabled (default)
-parser = Parser(spec, allow_command_aliases=True)
-result = parser.parse(["rm"])      # Matches via alias
-result = parser.parse(["delete"])  # Matches via alias
-result = parser.parse(["remove"])  # Matches canonical name
+# Aliases enabled (default)result = parse_command_line_args(spec, ["rm"])      # Matches via alias
+result = parse_command_line_args(spec, ["delete"])  # Matches via alias
+result = parse_command_line_args(spec, ["remove"])  # Matches canonical name
 
-# Aliases disabled
-parser = Parser(spec, allow_command_aliases=False)
-result = parser.parse(["remove"])  # Canonical name still works
+# Aliases disabledresult = parse_command_line_args(spec, ["remove"])  # Canonical name still works
 try:
-    parser.parse(["rm"])  # Alias rejected
+    parse_command_line_args(spec, ["rm"])  # Alias rejected
 except UnknownSubcommandError:
     pass
 ```
@@ -411,15 +389,11 @@ spec = CommandSpecification(
     options=(
         FlagOptionSpecification(name="verbose", long_names=("verbose",)),
     ),
-)
-
-parser = Parser(spec, case_sensitive_options=False)
-
-# All case variations match
-result = parser.parse(["--verbose"])
-result = parser.parse(["--Verbose"])
-result = parser.parse(["--VERBOSE"])
-result = parser.parse(["--VeRbOsE"])
+)# All case variations match
+result = parse_command_line_args(spec, ["--verbose"])
+result = parse_command_line_args(spec, ["--Verbose"])
+result = parse_command_line_args(spec, ["--VERBOSE"])
+result = parse_command_line_args(spec, ["--VeRbOsE"])
 
 # Canonical name is preserved in result
 assert result.options["verbose"].name == "verbose"
@@ -443,12 +417,9 @@ assert result.options["verbose"].name == "verbose"
 
 When disabled (`case_sensitive_commands=False`), subcommand names match case-insensitively.
 
-```python
-parser = Parser(spec, case_sensitive_commands=False)
-
-result = parser.parse(["start"])   # lowercase
-result = parser.parse(["Start"])   # initial capital
-result = parser.parse(["START"])   # uppercase
+```pythonresult = parse_command_line_args(spec, ["start"])   # lowercase
+result = parse_command_line_args(spec, ["Start"])   # initial capital
+result = parse_command_line_args(spec, ["START"])   # uppercase
 # All match the same "start" subcommand
 ```
 
@@ -466,13 +437,9 @@ spec = CommandSpecification(
     options=(
         ValueOptionSpecification(name="output_format", long_names=("output-format",), arity=Arity(1, 1)),
     ),
-)
-
-parser = Parser(spec, convert_underscores=True)
-
-# Both styles work
-result = parser.parse(["--output-format", "json"])
-result = parser.parse(["--output_format", "json"])
+)# Both styles work
+result = parse_command_line_args(spec, ["--output-format", "json"])
+result = parse_command_line_args(spec, ["--output_format", "json"])
 
 # Canonical name is preserved
 assert result.options["output_format"].name == "output_format"
@@ -498,17 +465,13 @@ Flags are boolean options with `arity=(0, 0)` that represent presence/absence se
 
 When set to a single character string, enables argument file expansion where arguments beginning with that character are treated as file paths. The file's contents are read and expanded inline during preprocessing. Setting to `None` or an empty string disables argument file expansion entirely.
 
-See `specs/parser/argument-files.md#syntax-convention` for complete details on prefix detection, escaping, and error handling.
+See [argument-files.md](argument-files.md#syntax-convention) for complete details on prefix detection, escaping, and error handling.
 
 ```python
-# Argument files enabled with default @ prefix
-parser = Parser(spec, argument_file_prefix="@")
-result = parser.parse(["@config.args", "--verbose"])
+# Argument files enabled with default @ prefixresult = parse_command_line_args(spec, ["@config.args", "--verbose"])
 # Expands contents of config.args inline
 
-# Argument files disabled
-parser = Parser(spec, argument_file_prefix=None)
-result = parser.parse(["@config.args"])
+# Argument files disabledresult = parse_command_line_args(spec, ["@config.args"])
 # Treats @config.args as literal positional argument
 ```
 
@@ -530,17 +493,12 @@ result = parser.parse(["@config.args"])
 
 Specifies how argument files are parsed. `LINE` mode treats each non-empty, non-comment line as a single argument. `SHELL` mode parses files using shell-style whitespace separation with quoting support.
 
-See `specs/parser/argument-files.md#file-format-and-syntax` for complete format specifications and parsing rules.
+See [argument-files.md](argument-files.md#file-format-and-syntax) for complete format specifications and parsing rules.
 
 ```python
 from flagrant.enums import ArgumentFileFormat
 
-# Line-based format (default)
-parser = Parser(spec, argument_file_format=ArgumentFileFormat.LINE)
-
-# Shell-style format (future)
-parser = Parser(spec, argument_file_format=ArgumentFileFormat.SHELL)
-```
+# Line-based format (default)# Shell-style format (future)```
 
 **Line-based format characteristics:**
 
@@ -563,18 +521,10 @@ parser = Parser(spec, argument_file_format=ArgumentFileFormat.SHELL)
 
 Specifies the character that introduces line comments in argument files (line-based format only). Lines beginning with this character (optionally preceded by whitespace) are ignored during parsing. Setting to `None` disables comments, allowing values to start with the comment character.
 
-See `specs/parser/argument-files.md#comment-syntax` for comment syntax rules and edge cases.
+See [argument-files.md](argument-files.md#comment-syntax) for comment syntax rules and edge cases.
 
 ```python
-# Default: # introduces comments
-parser = Parser(spec, argument_file_comment_char="#")
-
-# Custom comment character
-parser = Parser(spec, argument_file_comment_char=";")
-
-# Comments disabled
-parser = Parser(spec, argument_file_comment_char=None)
-```
+# Default: # introduces comments# Custom comment character# Comments disabled```
 
 **When to customize:**
 
@@ -588,15 +538,10 @@ parser = Parser(spec, argument_file_comment_char=None)
 
 Specifies the maximum depth of argument file recursion. A depth of 1 means argument files cannot reference other argument files. Higher values allow nested references but increase complexity and risk of circular dependencies.
 
-See `specs/parser/argument-files.md#recursive-expansion` for recursion semantics, depth limits, and circular reference detection.
+See [argument-files.md](argument-files.md#recursive-expansion) for recursion semantics, depth limits, and circular reference detection.
 
 ```python
-# No recursion (argument files cannot reference other files)
-parser = Parser(spec, max_argument_file_depth=1)
-
-# Allow one level of recursion
-parser = Parser(spec, max_argument_file_depth=2)
-```
+# No recursion (argument files cannot reference other files)# Allow one level of recursion```
 
 **Constraints:**
 
@@ -626,18 +571,14 @@ spec = CommandSpecification(
     ),
 )
 
-# Enabled (default) - negative numbers recognized
-parser = Parser(spec, allow_negative_numbers=True)
-result = parser.parse(["--threshold", "-5"])
+# Enabled (default) - negative numbers recognizedresult = parse_command_line_args(spec, ["--threshold", "-5"])
 assert result.options["threshold"].value == "-5"
 
-result = parser.parse(["-1", "-2", "-3.14"])
+result = parse_command_line_args(spec, ["-1", "-2", "-3.14"])
 assert result.positionals["values"].value == ("-1", "-2", "-3.14")
 
-# Disabled - negative numbers treated as unknown options
-parser = Parser(spec, allow_negative_numbers=False)
-try:
-    parser.parse(["--threshold", "-5"])
+# Disabled - negative numbers treated as unknown optionstry:
+    parse_command_line_args(spec, ["--threshold", "-5"])
 except UnknownOptionError:
     # -5 treated as short option cluster
     pass
@@ -677,14 +618,13 @@ This pattern recognizes:
 Customize the regular expression used to detect negative numbers.
 
 ```python
-parser = Parser(
-    spec,
+config = ParserConfiguration(
     allow_negative_numbers=True,
     # Allow leading decimal: -.5
     negative_number_pattern=r"^-\.?\d+\.?\d*([eE][+-]?\d+)?$",
 )
 
-result = parser.parse(["-.5"])  # Valid with custom pattern
+result = parse_command_line_args(spec, ["-.5"], config)  # Valid with custom pattern
 assert result.positionals["values"].value == ("-0.5",)
 ```
 
@@ -724,8 +664,7 @@ spec = CommandSpecification(
 )
 
 # APPEND mode - values remain nested (preserves arity-bounded groups)
-parser = Parser(spec)
-result = parser.parse(["--input", "a", "b", "--input", "c", "d"])
+result = parse_command_line_args(spec, ["--input", "a", "b", "--input", "c", "d"])
 assert result.options["input"].value == (("a", "b"), ("c", "d"))
 
 # EXTEND mode - values flattened into single tuple
@@ -739,9 +678,7 @@ spec_extend = CommandSpecification(
             accumulation_mode=ValueAccumulationMode.EXTEND,
         ),
     ),
-)
-parser = Parser(spec_extend)
-result = parser.parse(["--input", "a", "b", "--input", "c", "d"])
+)result = parse_command_line_args(spec, ["--input", "a", "b", "--input", "c", "d"])
 assert result.options["input"].value == ("a", "b", "c", "d")
 ```
 
@@ -769,14 +706,7 @@ Configuration flags are largely independent, but some combinations produce speci
 
 When both abbreviation and case insensitivity are enabled, abbreviations match case-insensitively:
 
-```python
-parser = Parser(
-    spec,
-    allow_abbreviated_options=True,
-    case_sensitive_options=False,
-)
-
-result = parser.parse(["--VER"])  # Matches "verbose" case-insensitively
+```pythonresult = parse_command_line_args(spec, ["--VER"])  # Matches "verbose" case-insensitively
 ```
 
 **How it works:** Names are normalized to lowercase first, then abbreviation matching is applied to the normalized names.
@@ -791,15 +721,7 @@ spec = CommandSpecification(
     subcommands=(
         CommandSpecification(name="remove", aliases=("rm",)),
     ),
-)
-
-parser = Parser(
-    spec,
-    allow_command_aliases=True,
-    case_insensitive_subcommands=True,
-)
-
-result = parser.parse(["RM"])  # Matches "remove" via alias, case-insensitively
+)result = parse_command_line_args(spec, ["RM"])  # Matches "remove" via alias, case-insensitively
 ```
 
 ### Underscore conversion with abbreviation
@@ -812,33 +734,18 @@ spec = CommandSpecification(
     options=(
         OptionSpecification(name="my_long_option", long_names=("my-long-option",)),
     ),
-)
-
-parser = Parser(
-    spec,
-    allow_abbreviated_options=True,
-    convert_underscores=True,
-)
-
-result = parser.parse(["--my_lon"])  # Underscores normalized, then abbreviated
+)result = parse_command_line_args(spec, ["--my_lon"])  # Underscores normalized, then abbreviated
 ```
 
 ### POSIX-style ordering with abbreviated options
 
 POSIX-style ordering and option abbreviation combine naturally:
 
-```python
-parser = Parser(
-    spec,
-    strict_options_before_positionals=True,
-    allow_abbreviated_options=True,
-)
-
-# Abbreviated option before positional works
-result = parser.parse(["--verb", "file.txt"])
+```python# Abbreviated option before positional works
+result = parse_command_line_args(spec, ["--verb", "file.txt"])
 
 # After positional, even abbreviated option-like args are positionals
-result = parser.parse(["file.txt", "--verb"])
+result = parse_command_line_args(spec, ["file.txt", "--verb"])
 # "--verb" is treated as a positional, not an option
 ```
 
@@ -846,19 +753,12 @@ result = parser.parse(["file.txt", "--verb"])
 
 Negative number recognition works with POSIX-style ordering in appropriate contexts:
 
-```python
-parser = Parser(
-    spec,
-    strict_options_before_positionals=True,
-    allow_negative_numbers=True,
-)
-
-# Before positionals started: negative number as option value
-result = parser.parse(["--threshold", "-5"])
+```python# Before positionals started: negative number as option value
+result = parse_command_line_args(spec, ["--threshold", "-5"])
 assert result.options["threshold"].value == "-5"
 
 # After positionals started: negative number as positional
-result = parser.parse(["file.txt", "-5"])
+result = parse_command_line_args(spec, ["file.txt", "-5"])
 assert result.positionals["values"].value == ("-5",)
 ```
 
@@ -868,21 +768,7 @@ Common use cases are well-served by preset configurations that combine multiple 
 
 ### Modern developer tool
 
-```python
-parser = Parser(
-    spec,
-    # GNU-style: options anywhere
-    strict_options_before_positionals=False,
-    # Convenient abbreviations
-    allow_abbreviated_options=True,
-    allow_abbreviated_subcommands=True,
-    minimum_abbreviation_length=3,
-    # Aliases for common commands
-    allow_command_aliases=True,
-    # Python-friendly underscore conversion
-    convert_underscores=True,
-)
-```
+```python```
 
 **Characteristics:**
 
@@ -893,13 +779,7 @@ parser = Parser(
 
 ### Traditional Unix utility
 
-```python
-parser = Parser(
-    spec,
-    # POSIX-style ordering: options before positionals
-    strict_options_before_positionals=True,
-    # Conservative matching (no abbreviations)
-    allow_abbreviated_options=False,
+```python    allow_abbreviated_options=False,
     allow_abbreviated_subcommands=False,
     # Conservative settings
     allow_command_aliases=False,
@@ -917,19 +797,7 @@ parser = Parser(
 
 ### User-friendly application
 
-```python
-parser = Parser(
-    spec,
-    # Flexible ordering
-    strict_options_before_positionals=False,
-    # Forgiving name matching
-    case_sensitive_options=False,
-    case_sensitive_commands=False,
-    convert_underscores=True,
-    # Allow convenient shortcuts
-    allow_abbreviated_options=True,
-)
-```
+```python```
 
 **Characteristics:**
 
@@ -941,15 +809,7 @@ parser = Parser(
 
 ### Scientific/numerical tool
 
-```python
-parser = Parser(
-    spec,
-    # Handle negative numbers
-    allow_negative_numbers=True,
-    # Standard parsing otherwise
-    strict_options_before_positionals=False,
-)
-```
+```python```
 
 **Characteristics:**
 
@@ -960,9 +820,8 @@ parser = Parser(
 ### Minimal configuration
 
 ```python
-parser = Parser(spec)
 # Uses all defaults:
-# - Flexible option placement (strict_options_before_positionals=False)
+# - Flexible option placement (strict_posix_options=False)
 # - No abbreviations (allow_abbreviated_options=False, allow_abbreviated_subcommands=False)
 # - Case-sensitive (case_sensitive_options=True, case_sensitive_commands=True, case_sensitive_keys=True)
 # - Underscore-dash conversion enabled (convert_underscores=True)
@@ -998,10 +857,8 @@ Invalid configurations raise `ConfigurationError` with a message identifying the
 
 ```python
 try:
-    parser = Parser(
-        spec,
-        config=Configuration(minimum_abbreviation_length=0),  # Invalid
-    )
+    config = ParserConfiguration(minimum_abbreviation_length=0)  # Invalid
+    result = parse_command_line_args(spec, [], config)
 except ConfigurationError as e:
     print(e)  # "minimum_abbreviation_length must be >= 1, got 0"
 ```
@@ -1031,17 +888,14 @@ Parser configuration provides fine-grained control over parsing behavior without
 - Default configuration is conservative and predictable
 - Preset configurations support common use cases
 
----
-
 **Related specifications:**
 
-- `specs/parser/overview.md` - Design constraints and principles
-- `specs/parser/grammar.md` - Syntax rules affected by configuration
-- `specs/parser/behavior.md` - Parsing algorithms using configuration
-- `specs/parser/types.md` - Result types and value structures
-- `specs/parser/errors.md` - Validation errors
-- `specs/concepts.md` - Arity, accumulation modes, resolution
+- [Architecture](architecture.md) - System architecture and design principles
+- [Grammar specification](grammar.md) - Syntax rules affected by configuration
+- [Behavior specification](behavior.md) - Parsing algorithms using configuration
+- [Error types](errors.md) - Validation errors
+- [Concepts guide](concepts.md) - Arity, accumulation modes, resolution
 
 **Target audience:** Developers configuring parsers, framework builders integrating Flagrant, and anyone designing CLI specifications.
 
-**Maintenance:** Update this specification when configuration options are added, removed, or their behavior changes. Algorithm changes belong in `specs/parser/behavior.md`, syntax changes belong in `specs/parser/grammar.md`.
+**Maintenance:** Update this specification when configuration options are added, removed, or their behavior changes. Algorithm changes belong in the [behavior specification](behavior.md), syntax changes belong in the [grammar specification](grammar.md).

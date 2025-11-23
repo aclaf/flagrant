@@ -1,8 +1,10 @@
 # Parser grammar specification
 
+--8<-- "unreleased.md"
+
 This specification defines the formal grammar for valid command-line input that Flagrant's parser accepts. The grammar covers how arguments are classified as options versus positionals, the syntax rules for long and short options (including value assignment), positional argument identification, and special constructs like dictionary arguments and the end-of-options delimiter.
 
-The grammar presented here is **prescriptive**, defining what input is syntactically valid. The parser's behavior specification (`specs/parser/behavior.md`) describes how the parser processes valid input to produce parse results. The configuration specification (`specs/parser/configuration.md`) documents how parser configuration affects grammar interpretation.
+The grammar presented here is **prescriptive**, defining what input is syntactically valid. The [parser behavior specification](behavior.md) describes how the parser processes valid input to produce parse results. The [configuration specification](configuration.md) documents how parser configuration affects grammar interpretation.
 
 This document uses Extended Backus-Naur Form (EBNF) notation for formal grammar rules, supplemented with prose explanations and concrete examples. The grammar is **deterministic given a parser configuration**. Different configurations (strict mode, negative number handling, subcommand definitions) result in different effective grammars, but each configuration produces deterministic parsing without ambiguity.
 
@@ -11,16 +13,61 @@ This document uses Extended Backus-Naur Form (EBNF) notation for formal grammar 
 
 ## Table of contents
 
-- [Purpose](#purpose)
 - [Grammar notation](#grammar-notation)
 - [Argument classification](#argument-classification)
+  - [Classification rules](#classification-rules)
+  - [Formal classification grammar](#formal-classification-grammar)
+  - [Classification context rules](#classification-context-rules)
+  - [Single dash special case](#single-dash-special-case)
 - [Long option syntax](#long-option-syntax)
+  - [Basic long option syntax](#basic-long-option-syntax)
+  - [Value assignment (space-separated values)](#value-assignment-space-separated-values)
+  - [Value assignment (equals-separated values)](#value-assignment-equals-separated-values)
+  - [Value assignment (inline values without equals)](#value-assignment-inline-values-without-equals)
+  - [Negation syntax](#negation-syntax)
+  - [Option name transformations](#option-name-transformations)
 - [Short option syntax](#short-option-syntax)
+  - [Basic short option syntax](#basic-short-option-syntax)
+  - [Option clustering](#option-clustering)
+  - [Value assignment (space-separated values)](#value-assignment-space-separated-values-1)
+  - [Value assignment (attached values)](#value-assignment-attached-values)
+  - [Value assignment (inline values without equals)](#value-assignment-inline-values-without-equals-1)
+  - [Value assignment (equals-separated values)](#value-assignment-equals-separated-values-1)
+  - [Accumulation with clustering](#accumulation-with-clustering)
 - [Positional argument syntax](#positional-argument-syntax)
+  - [Positional classification](#positional-classification)
+  - [Positional syntax](#positional-syntax)
+  - [Positional grouping](#positional-grouping)
+  - [Interaction with strict mode](#interaction-with-strict-mode)
 - [Dictionary argument syntax](#dictionary-argument-syntax)
+  - [Flat dictionary syntax](#flat-dictionary-syntax)
+  - [Nested dictionary syntax](#nested-dictionary-syntax)
+  - [List syntax in dictionaries](#list-syntax-in-dictionaries)
+  - [Lists of dictionaries](#lists-of-dictionaries)
+  - [Special character escaping](#special-character-escaping)
+  - [JSON fallback syntax](#json-fallback-syntax)
+  - [Dictionary grammar (summary)](#dictionary-grammar-summary)
 - [Value syntax](#value-syntax)
+  - [Value structure](#value-structure)
+  - [Empty values](#empty-values)
+  - [Quoted values](#quoted-values)
+  - [Values with special characters](#values-with-special-characters)
 - [Complete formal grammar](#complete-formal-grammar)
+  - [Top-level grammar](#top-level-grammar)
+  - [Long option grammar](#long-option-grammar)
+  - [Short option grammar](#short-option-grammar)
+  - [Positional grammar](#positional-grammar)
+  - [Subcommand grammar](#subcommand-grammar)
+  - [Negative number grammar](#negative-number-grammar)
+  - [Dictionary argument grammar (summary)](#dictionary-argument-grammar-summary)
+  - [Character classes](#character-classes)
 - [Examples and edge cases](#examples-and-edge-cases)
+  - [Long option examples](#long-option-examples)
+  - [Short option examples](#short-option-examples)
+  - [Positional examples](#positional-examples)
+  - [Dictionary examples](#dictionary-examples)
+  - [Trailing argument examples](#trailing-argument-examples)
+  - [Edge cases](#edge-cases)
 
 ---
 
@@ -100,7 +147,7 @@ Where:
 
 ### Classification context rules
 
-**After end-of-options delimiter:** All arguments following `--` are placed in trailing arguments without classification or parsing. They are preserved exactly as provided.
+**After end-of-options delimiter:** all arguments following `--` are placed in trailing arguments without classification or parsing. They are preserved exactly as provided.
 
 ```bash
 program --verbose -- --not-an-option file.txt
@@ -108,16 +155,16 @@ program --verbose -- --not-an-option file.txt
 # Trailing: ["--not-an-option", "file.txt"]
 ```
 
-**In strict positional mode:** Once the first positional argument is encountered, all subsequent arguments become positionals even if they structurally match option patterns.
+**In strict positional mode:** once the first positional argument is encountered, all subsequent arguments become positionals even if they structurally match option patterns.
 
 ```bash
-# With strict_options_before_positionals=True
+# With strict_posix_options=True
 program --verbose file.txt --output result.txt
 # Options: {verbose: True}
 # Positionals: ["file.txt", "--output", "result.txt"]
 ```
 
-**Negative numbers:** When `allow_negative_numbers=True` and positional specs are defined, arguments matching the negative number pattern are classified as positionals rather than short options.
+**Negative numbers:** when `allow_negative_numbers=True` and positional specs are defined, arguments matching the negative number pattern are classified as positionals rather than short options.
 
 ```bash
 # With allow_negative_numbers=True
@@ -156,20 +203,20 @@ Where:
 - The first character must be alphabetic
 - Subsequent characters can be alphanumeric, dash, or underscore (subject to normalization)
 
-**Minimum length:** Long option names must be at least 1 character. Single-character long options like `--v` are valid and distinct from short options `-v`.
+**Minimum length:** long option names must be at least 1 character. Single-character long options like `--v` are valid and distinct from short options `-v`.
 
-**Valid characters:** By default, long option names can contain:
+**Valid characters:** by default, long option names can contain:
 
 - Alphabetic characters (a-z, A-Z)
 - Digits (0-9)
 - Dashes (`-`)
 - Underscores (`_`)
 
-**Character normalization:** When `convert_underscores=True`, underscores and dashes are treated identically during matching.
+**Character normalization:** when `convert_underscores=True`, underscores and dashes are treated identically during matching.
 
-**Case sensitivity:** When `case_sensitive_options=False`, all characters are normalized to lowercase during matching.
+**Case sensitivity:** when `case_sensitive_options=False`, all characters are normalized to lowercase during matching.
 
-### Value assignment: space-separated
+### Value assignment (space-separated values)
 
 The standard syntax separates the option from its value with whitespace:
 
@@ -185,7 +232,7 @@ The parser consumes values from following arguments until:
 - Encountering a subcommand name
 - Reaching the end of arguments
 
-### Value assignment: equals-separated
+### Value assignment (equals-separated values)
 
 Long options can use equals syntax for explicit value assignment:
 
@@ -199,7 +246,7 @@ Long options can use equals syntax for explicit value assignment:
 - **Single value consumption:** Only the value immediately after `=` is consumed, regardless of the option's maximum arity
 - **Empty values allowed:** `--output=` assigns an empty string value
 - **Equals in values:** The parser splits on the **first** equals sign only, so `--option=a=b=c` assigns value `a=b=c`
-- **Arity validation:** Options requiring more than one value (`arity.min > 1`) raise `InsufficientValuesError` (see `specs/parser/errors.md`) when using equals syntax with a single value
+- **Arity validation:** Options requiring more than one value (`arity.min > 1`) raise `InsufficientValuesError` (see [error types](errors.md)) when using equals syntax with a single value
 
 ```ebnf
 equals_value ::= "=" value_content
@@ -208,6 +255,45 @@ value_content ::= <CHAR>*
 ```
 
 The `value_content` extends from the first character after `=` to the end of the argument string, including any subsequent equals signs.
+
+### Value assignment (inline values without equals)
+
+When `allow_inline_values_without_equals=True`, long options can accept values directly attached without an equals sign:
+
+```bash
+--outputfilename.txt    # Equivalent to: --output filename.txt
+--log-leveldebug        # Equivalent to: --log-level debug
+```
+
+**Prefix matching algorithm:**
+
+The parser uses a prefix matching algorithm to identify which option is being specified:
+
+1. For each defined long option name, check if the provided argument starts with that name
+2. If a match is found, the option name is extracted and the remainder becomes the inline value
+3. If multiple options could match (one is a prefix of another), the first match found takes precedence
+
+**Example with multiple options:**
+
+```bash
+# With options: output, output-dir
+--outputfile.txt              # Matches "output", value="file.txt"
+--output-dirname              # Matches "output-dir", value="name"
+```
+
+**Important precedence rules:**
+
+- Equals-separated values take precedence: `--output=file.txt` always splits on `=`
+- If no equals sign present and `allow_inline_values_without_equals=True`, attempt prefix matching
+- The first matching option name in the specification order is used
+
+**Grammar:**
+
+```ebnf
+inline_value_without_equals ::= long_option_name value_content
+
+value_content ::= <CHAR>+
+```
 
 ### Negation syntax
 
@@ -225,29 +311,29 @@ Long flags with defined negation words support negated forms:
 negated_flag ::= "--" negation_prefix "-" long_option_name
 ```
 
-**Important:** Negated flags do not accept values (see `specs/parser/behavior.md`). Attempting to provide a value to a negated flag raises `FlagWithValueError`. Negation syntax is only supported for long options; short options use independent negation short names (see `FlagOptionSpecification.negation_short_names`).
+**Important:** negated flags do not accept values (see [parser behavior](behavior.md)). Attempting to provide a value to a negated flag raises `FlagWithValueError`. Negation syntax is only supported for long options; short options use independent negation short names (see `FlagOptionSpecification.negation_short_names`).
 
 Negation prefixes are configured per-option via `FlagOptionSpecification.negation_prefixes`. Each negation prefix word creates a valid negated form.
 
 ### Option name transformations
 
-**Important:** The transformations described in this section (case-insensitive matching, abbreviation, underscore-dash equivalence) are **semantic matching rules** applied during parsing. They do not affect the syntactic grammar (what constitutes a valid option syntactically), only how option names are matched against defined specifications. These rules are documented in `specs/parser/behavior.md` under option resolution.
+**Important:** the transformations described in this section (case-insensitive matching, abbreviation, underscore-dash equivalence) are **semantic matching rules** applied during parsing. They do not affect the syntactic grammar (what constitutes a valid option syntactically), only how option names are matched against defined specifications. These rules are documented in the [parser behavior specification](behavior.md) under option resolution.
 
-**Underscore to dash conversion:** When `convert_underscores=True`, both forms match:
+**Underscore to dash conversion:** when `convert_underscores=True`, both forms match:
 
 ```bash
 --log_level=debug    # Matches "log-level" or "log_level"
 --log-level=debug    # Matches "log-level" or "log_level"
 ```
 
-**Case-insensitive matching:** When `case_sensitive_options=False`, all case variations match:
+**Case-insensitive matching:** when `case_sensitive_options=False`, all case variations match:
 
 ```bash
 --verbose, --Verbose, --VERBOSE, --VeRbOsE
 # All match the same option
 ```
 
-**Abbreviated options:** When `allow_abbreviated_options=True`, unambiguous prefixes match:
+**Abbreviated options:** when `allow_abbreviated_options=True`, unambiguous prefixes match:
 
 ```bash
 # With options: verbose, version, verify
@@ -281,9 +367,9 @@ Where:
 - Subsequent characters can be alphanumeric (`<ALNUM>`: letters or digits)
 - `value_string` is consumed only if the last option accepts values
 
-**Single character requirement:** Each short option name is exactly one character. Multi-character sequences like `-abc` represent clustering (multiple short options), not a single multi-character option.
+**Single character requirement:** each short option name is exactly one character. Multi-character sequences like `-abc` represent clustering (multiple short options), not a single multi-character option.
 
-**Valid characters:** Short option names can be:
+**Valid characters:** short option names can be:
 
 - Alphabetic characters (a-z, A-Z) - required for first character in cluster
 - Digits (0-9) - allowed in cluster positions after the first character when explicitly defined as short option names
@@ -321,7 +407,7 @@ flag_char ::= <ALPHA>    /* Must match a flag option */
 value_option_char ::= <ALPHA>    /* Must match an option accepting values */
 ```
 
-### Value assignment: space-separated
+### Value assignment (space-separated values)
 
 The standard syntax separates the option from its value with whitespace:
 
@@ -332,7 +418,7 @@ The standard syntax separates the option from its value with whitespace:
 
 The parser consumes values from following arguments using the same rules as long options: stopping at maximum arity, other options, subcommands, or end of arguments.
 
-### Value assignment: attached values
+### Value assignment (attached values)
 
 Values can attach directly to short options without any separator:
 
@@ -347,13 +433,54 @@ Values can attach directly to short options without any separator:
 attached_value ::= value_string    /* Immediately following option character */
 ```
 
-**Important:** Attached values are **not valid** for flags (arity `(0, 0)`). Attempting to attach a value to a flag raises `OptionDoesNotAcceptValueError`:
+**Important:** attached values are **not valid** for flags (arity `(0, 0)`). Attempting to attach a value to a flag raises `OptionDoesNotAcceptValueError`:
 
 ```bash
 -vverbose    # Error: 'v' is a flag and cannot accept "verbose"
 ```
 
-### Value assignment: equals-separated
+### Value assignment (inline values without equals)
+
+When `allow_inline_values_without_equals=True`, short options can accept values directly attached, even when characters after the option are not recognized as valid short options:
+
+```bash
+-ofilename.txt         # Equivalent to: -o filename.txt
+-abcofilename.txt      # Equivalent to: -a -b -c -o filename.txt
+```
+
+**Character-by-character parsing:**
+
+The parser processes short option characters one at a time:
+
+1. Extract each character as a potential short option name
+2. If a character matches a defined short option, continue to the next character
+3. If a character does not match any defined option, the remaining characters (including the unrecognized one) become the inline value
+4. If an equals sign is encountered, everything after it becomes the inline value
+5. If all characters are recognized as valid options, there is no inline value
+
+**Stopping conditions:**
+
+Character extraction stops when:
+
+- An unrecognized character is encountered (remainder becomes inline value)
+- An equals sign is found (everything after `=` becomes inline value)
+- All characters are recognized as valid options (no inline value)
+
+**Example:**
+
+```bash
+# With defined short options: -a, -b, -c, -o
+-abcofile.txt    # Recognized: a, b, c, o; inline_value: "file.txt"
+-abcxfile.txt    # Recognized: a, b, c; inline_value: "xfile.txt" (x not defined)
+-abc=file.txt    # Recognized: a, b, c; inline_value: "file.txt"
+```
+
+**Important differences from standard attached values:**
+
+- With `allow_inline_values_without_equals=False`: Unknown characters raise `UnknownOptionError`
+- With `allow_inline_values_without_equals=True`: Unknown characters mark the start of an inline value
+
+### Value assignment (equals-separated values)
 
 Short options can use equals syntax:
 
@@ -413,23 +540,23 @@ positional_argument ::= <ARGUMENT_STRING>
 
 Where `<ARGUMENT_STRING>` is any non-empty string that doesn't match option patterns or subcommand names in the current context.
 
-**No syntactic restrictions:** Positional arguments can contain any characters including dashes, equals signs, and special characters. The parser treats them as opaque strings.
+**No syntactic restrictions:** positional arguments can contain any characters including dashes, equals signs, and special characters. The parser treats them as opaque strings.
 
 ### Positional grouping
 
 Positional arguments are **collected during parsing** and **grouped after option processing**. The grouping algorithm assigns arguments to positional specs based on arity constraints.
 
-The grouping algorithm is detailed in `specs/parser/behavior.md` and `specs/concepts.md`. Key points:
+The grouping algorithm is detailed in the [parser behavior specification](behavior.md) and [concepts guide](concepts.md). Key points:
 
 - Arguments are assigned left-to-right to positional specs in order
 - Each positional spec consumes arguments according to its arity
 - Unbounded positionals consume as much as possible while reserving values for later positionals with minimum requirements
 
-**Implicit positional spec:** When no positional specs are defined, the parser creates an implicit spec named "args" with arity `(0, None)` to capture all positionals.
+**Implicit positional spec:** when no positional specs are defined, the parser creates an implicit spec named "args" with arity `(0, None)` to capture all positionals.
 
 ### Interaction with strict mode
 
-When `strict_options_before_positionals=True`:
+When `strict_posix_options=True`:
 
 - Once the first positional is encountered, all subsequent arguments become positionals
 - This includes arguments that structurally look like options
@@ -444,7 +571,7 @@ Without strict mode, options and positionals can be freely intermixed.
 
 ## Dictionary argument syntax
 
-Dictionary arguments enable users to pass structured key-value data through the command line. This section provides a **summary** of dictionary syntax; see `specs/parser/dictionary-parsing.md` for the comprehensive specification.
+Dictionary arguments enable users to pass structured key-value data through the command line. This section provides a **summary** of dictionary syntax; see the [dictionary parsing specification](dictionary-parsing.md) for comprehensive details.
 
 ### Flat dictionary syntax
 
@@ -456,7 +583,7 @@ Basic key-value pairs use equals as the separator:
 --config key1=value1 --config key2=value2
 ```
 
-**Multiple pairs:** Dictionary arguments support both repeated option pattern and accumulated pattern (multiple pairs after a single flag).
+**multiple pairs:** dictionary arguments support both repeated option pattern and accumulated pattern (multiple pairs after a single flag).
 
 ### Nested dictionary syntax
 
@@ -500,25 +627,25 @@ Combining brackets and dots creates structured list elements:
 
 ### Special character escaping
 
-**Dots in keys:** Escape with backslash within quotes:
+**Dots in keys:** escape with backslash within quotes:
 
 ```bash
 --config 'service\.kubernetes\.io/name=myservice'
 ```
 
-**Brackets in keys:** Escape with backslash:
+**Brackets in keys:** escape with backslash:
 
 ```bash
 --config 'metadata\[annotation\]=value'
 ```
 
-**Equals in keys:** Escape with backslash:
+**Equals in keys:** escape with backslash:
 
 ```bash
 --config 'key\=with\=equals=value'
 ```
 
-**Equals in values:** No escaping needed (parser splits on first equals):
+**Equals in values:** no escaping needed (parser splits on first equals):
 
 ```bash
 --config equation="x=y+z"
@@ -551,7 +678,7 @@ accessor ::= "." segment
 value_string ::= <CHAR>*
 ```
 
-See `specs/parser/dictionary-parsing.md` for complete grammar, type conversion rules, and error handling.
+See the [dictionary parsing specification](dictionary-parsing.md) for complete grammar, type conversion rules, and error handling.
 
 ## Value syntax
 
@@ -589,27 +716,27 @@ The parser does not perform its own quote processing; it operates on the argumen
 
 ### Values with special characters
 
-**Spaces:** Require shell quoting to prevent splitting:
+**Spaces:** require shell quoting to prevent splitting:
 
 ```bash
 --description "A long description with spaces"
 ```
 
-**Equals signs:** No escaping needed in values (parser splits on first equals only):
+**Equals signs:** no escaping needed in values (parser splits on first equals only):
 
 ```bash
 --equation "x=y+z"
 --query "name=value&foo=bar"
 ```
 
-**Dashes:** No special handling required:
+**Dashes:** no special handling required:
 
 ```bash
 --range "1-100"
 --pattern "multi-word-pattern"
 ```
 
-**Whitespace:** Leading and trailing whitespace is preserved:
+**Whitespace:** leading and trailing whitespace is preserved:
 
 ```bash
 --value "  content  "    # Preserves spaces
@@ -647,6 +774,7 @@ long_option_name ::= <ALPHA> { <ALNUM> | "-" | "_" }
 
 inline_value ::= "=" value_content
                | <SPACE> value_string
+               | value_content  /* When allow_inline_values_without_equals=True */
 
 value_content ::= <CHAR>*
 
@@ -665,7 +793,7 @@ flag_char ::= <ALPHA>
 value_option_char ::= <ALPHA>
 
 inline_value ::= "=" value_content
-               | value_string
+               | value_string  /* Attached or when allow_inline_values_without_equals=True */
                | <SPACE> value_string
 ```
 
@@ -687,7 +815,7 @@ subcommand_name ::= <IDENTIFIER>
 <IDENTIFIER> ::= <ALPHA> { <ALNUM> | "-" | "_" }
 ```
 
-**Subcommand semantics:** When a subcommand name is matched:
+**Subcommand semantics:** when a subcommand name is matched:
 
 - All remaining arguments (including those that syntactically match option patterns) are classified as arguments to the subcommand
 - Subcommand arguments are not processed by the parent command's parser
@@ -717,7 +845,7 @@ accessor ::= "." segment
 value_string ::= <CHAR>*
 ```
 
-**Note on special character escaping:** The dictionary grammar above shows the basic structure. Special characters (dots, brackets, equals signs) within keys are handled through shell quoting and escape sequences. See `specs/parser/dictionary-parsing.md` for the complete grammar including escape rules, type conversion rules, and error handling.
+**Note on special character escaping:** the dictionary grammar above shows the basic structure. Special characters (dots, brackets, equals signs) within keys are handled through shell quoting and escape sequences. See the [dictionary parsing specification](dictionary-parsing.md) for the complete grammar including escape rules, type conversion rules, and error handling.
 
 ### Character classes
 
@@ -778,6 +906,15 @@ This section provides concrete examples demonstrating grammar rules and document
 # These are distinct options
 ```
 
+**Inline values without equals:**
+
+```bash
+# With allow_inline_values_without_equals=True
+--outputfile.txt        # Equivalent to: --output file.txt
+--log-leveldebug        # Equivalent to: --log-level debug
+--verbosemode           # Equivalent to: --verbose mode
+```
+
 ### Short option examples
 
 **Basic short options:**
@@ -816,6 +953,15 @@ This section provides concrete examples demonstrating grammar rules and document
 -vverbose               # Error: -v is flag, cannot accept "verbose"
 ```
 
+**Inline values without equals:**
+
+```bash
+# With allow_inline_values_without_equals=True and defined options: -a, -b, -c, -o
+-ofilename.txt          # Equivalent to: -o filename.txt
+-abcofilename.txt       # Equivalent to: -a -b -c -o filename.txt
+-abcxfile.txt           # -a, -b, -c recognized; "xfile.txt" becomes inline value (x not defined)
+```
+
 ### Positional examples
 
 **Basic positionals:**
@@ -836,7 +982,7 @@ program --verbose file.txt --output result.txt
 **Strict mode:**
 
 ```bash
-# With strict_options_before_positionals=True
+# With strict_posix_options=True
 program --verbose file.txt --output result.txt
 # Options: {verbose: True}
 # Positionals: ["file.txt", "--output", "result.txt"]
@@ -926,7 +1072,7 @@ grep -- -pattern file.txt
 --key=name=value        # Parsed as: option="key", value="name=value"
 ```
 
-**Multiple equals in values:**
+**multiple equals in values:**
 
 ```bash
 --option=a=b=c          # Value is "a=b=c"
@@ -948,7 +1094,7 @@ grep -- -pattern file.txt
 **Option-like positionals in strict mode:**
 
 ```bash
-# strict_options_before_positionals=True
+# strict_posix_options=True
 program file.txt --verbose
 # Positionals: ["file.txt", "--verbose"]
 ```
@@ -979,11 +1125,10 @@ program file.txt --verbose
 
 ---
 
-**Related pages:**
+## See also
 
-- [Concepts](concepts.md) - Arity, accumulation modes, option resolution
-- [Behavior](behavior.md) - Value consumption algorithm, positional grouping
-- [Configuration](configuration.md) - Parser configuration affecting grammar interpretation
-- [Dictionary parsing](dictionary-parsing.md) - Complete dictionary argument specification
-- [Types](types.md) - Parse result types and value structures
-- [Errors](errors.md) - Validation errors and error conditions
+- **[Concepts](concepts.md)**: Arity, accumulation modes, option resolution
+- **[Behavior](behavior.md)**: Value consumption algorithm, positional grouping
+- **[Configuration](configuration.md)**: Parser configuration affecting grammar interpretation
+- **[Dictionary parsing](dictionary-parsing.md)**: Complete dictionary argument specification
+- **[Errors](errors.md)**: Validation errors and error conditions

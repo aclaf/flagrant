@@ -44,7 +44,7 @@ InlineValue = Annotated[str, Doc("An inline value specified with an option")]
 
 
 class ParseResultDict(TypedDict):
-    """Dictionary representation of a [ParseResult][flagrant.parsing.ParseResult] for serialization."""  # noqa: E501
+    """Dictionary representation of a [ParseResult][flagrant.parser.ParseResult] for serialization."""  # noqa: E501
 
     command: str
     args: tuple[str, ...]

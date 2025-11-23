@@ -79,7 +79,7 @@ class OptionSpecification:
         Args:
             name: The canonical name for the option.
             arity: The number of values expected for each occurrence.
-                See [Arity][flagrant.Arity].
+                See [Arity][flagrant.specification.Arity].
             preferred_name: The preferred name used in parse results.
             case_sensitive: Whether the option names are case sensitive.
             convert_underscores: Whether long and short names have underscores converted
@@ -322,22 +322,18 @@ class ValueOptionSpecification(OptionSpecification):
     Attributes:
         arity: The number of values expected for each occurrence. See `Arity`.
         accumulation_mode: The strategy for handling multiple occurrences.
-            See [ValueAccumulationMode][flagrant.enums.ValueAccumulationMode].
+            See [ValueAccumulationMode][flagrant.specification.ValueAccumulationMode].
         allow_negative_numbers: If True, allows values that look like negative
             numbers (e.g., "-5") to be parsed as values for this option.
         greedy: If True, consumes all subsequent arguments as values until
             a separator (`--`) is found, ignoring other options.
         item_separator: A character used to split a single argument into
-            multiple values. Overrides
-            [value_item_separator][flagrant.configuration.Configuration.value_item_separator].
+            multiple values. Overrides the global `value_item_separator`.
         allow_item_separator: If True, enables the `item_separator`.
         escape_character: A character used to escape the `item_separator`.
-            Overrides
-            [value_escape_character][flagrant.configuration.Configuration.value_escape_character].
+            Overrides the global `value_escape_character`.
         negative_number_pattern: An optional regex to identify negative numbers,
-            overriding the global
-            [negative_number_pattern][flagrant.configuration.Configuration.negative_number_pattern]
-            for this option.
+            overriding the global `negative_number_pattern` for this option.
     """
 
     accumulation_mode: ValueAccumulationMode = ValueAccumulationMode.LAST
@@ -361,28 +357,25 @@ class DictOptionSpecification(OptionSpecification):
     Attributes:
         arity: The number of `key=value` arguments expected per occurrence.
         accumulation_mode: The strategy for handling multiple occurrences.
-            See [DictAccumulationMode][flagrant.enums.DictAccumulationMode].
+            See [DictAccumulationMode][flagrant.specification.DictAccumulationMode].
         merge_strategy: The strategy for merging dictionaries when `MERGE`
-            is used. See [DictMergeStrategy][flagrant.enums.DictMergeStrategy].
+            is used. See [DictMergeStrategy][flagrant.specification.DictMergeStrategy].
         key_value_separator: The character separating a key from a value.
-            Overrides
-            [key_value_separator][flagrant.configuration.Configuration.key_value_separator].
+            Overrides the global `key_value_separator`.
         nesting_separator: The character for denoting nested keys (e.g., ".").
-            Overrides
-            [nesting_separator][flagrant.configuration.Configuration.nesting_separator].
+            Overrides the global `nesting_separator`.
         allow_nested: If True, allows keys to be nested.
         case_sensitive_keys: If True, keys are case-sensitive.
         allow_duplicate_list_indices: If True, allows `list[0]=a list[0]=b`.
         allow_sparse_lists: If True, allows `list[0]=a list[2]=c`.
         strict_structure: If True, enforces strict structural rules. Overrides
-            [strict_structure][flagrant.configuration.Configuration.strict_structure].
+            the global `strict_structure`.
         greedy: If True, consumes all subsequent arguments as values.
         item_separator: A character to split a single argument into multiple
-            key-value pairs. Overrides
-            [dict_item_separator][flagrant.configuration.Configuration.dict_item_separator].
+            key-value pairs. Overrides the global `dict_item_separator`.
         allow_item_separator: If True, enables the `item_separator`.
         escape_character: Character to escape separators. Overrides
-            [dict_escape_character][flagrant.configuration.Configuration.dict_escape_character].
+            the global `dict_escape_character`.
     """
 
     accumulation_mode: DictAccumulationMode = DictAccumulationMode.MERGE
@@ -467,23 +460,20 @@ def create_dict_option_specification(  # noqa: D417, PLR0913
         merge_strategy: The strategy for merging dictionaries when `MERGE`
             is used. See [DictMergeStrategy][flagrant.enums.DictMergeStrategy].
         key_value_separator: The character separating a key from a value.
-            Overrides
-            [key_value_separator][flagrant.configuration.Configuration.key_value_separator].
+            Overrides the global `key_value_separator`.
         nesting_separator: The character for denoting nested keys (e.g., ".").
-            Overrides
-            [nesting_separator][flagrant.configuration.Configuration.nesting_separator].
+            Overrides the global `nesting_separator`.
         allow_nested: If True, allows keys to be nested.
         case_sensitive_keys: If True, keys are case-sensitive.
         allow_duplicate_list_indices: If True, allows `list[0]=a list[0]=b`.
         allow_sparse_lists: If True, allows `list[0]=a list[2]=c`.
         strict_structure: If True, enforces strict structural rules. Overrides
-            [strict_structure][flagrant.configuration.Configuration.strict_structure].
+            the global `strict_structure`.
         item_separator: A character to split a single argument into multiple
-            key-value pairs. Overrides
-            [dict_item_separator][flagrant.configuration.Configuration.dict_item_separator].
+            key-value pairs. Overrides the global `dict_item_separator`.
         allow_item_separator: If True, enables the `item_separator`.
         escape_character: Character to escape separators. Overrides
-            [dict_escape_character][flagrant.configuration.Configuration.dict_escape_character].
+            the global `dict_escape_character`.
 
     Returns:
         An instance of DictOptionSpecification.
