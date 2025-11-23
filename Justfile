@@ -87,6 +87,14 @@ lint-docs: install
   uv run --frozen djlint docs/.overrides
   pnpm exec biome check docs/
 
+# Run Vale linter
+lint-vale:
+  vale docs/ CONTRIBUTING.md README.md SECURITY.md
+
+# Sync Vale styles and dictionaries
+vale-sync:
+  vale sync
+
 # Run pre-commit hooks
 prek: install
   uv run --frozen prek
