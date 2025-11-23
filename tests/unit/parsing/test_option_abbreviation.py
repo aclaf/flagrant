@@ -1,45 +1,31 @@
+from typing import TYPE_CHECKING
+
 import pytest
 
 from flagrant.configuration import ParserConfiguration
 from flagrant.parser import parse_command_line_args
 from flagrant.parser.exceptions import AmbiguousOptionError, UnknownOptionError
-from flagrant.specification import (
-    Arity,
-    CommandSpecification,
-    FlagOptionSpecification,
-    ValueOptionSpecification,
-)
+
+if TYPE_CHECKING:
+    from flagrant.specification import (
+        CommandSpecificationFactory,
+        FlagOptionSpecificationFactory,
+        ValueOptionSpecificationFactory,
+    )
 
 
 class TestOptionAbbreviation:
-    def test_unambiguous_prefix_matching_for_long_options(self):
-        spec = CommandSpecification(
+    def test_unambiguous_prefix_matching_for_long_options(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        spec = make_command(
             name="test",
             options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-                "version": FlagOptionSpecification(
-                    name="version",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="version",
-                    long_names=("version",),
-                    short_names=(),
-                ),
-                "help": FlagOptionSpecification(
-                    name="help",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="help",
-                    long_names=("help",),
-                    short_names=(),
-                ),
+                "verbose": make_flag_opt(name="verbose"),
+                "version": make_flag_opt(name="version"),
+                "help": make_flag_opt(name="help"),
             },
         )
         config = ParserConfiguration(allow_abbreviated_options=True)
@@ -50,26 +36,16 @@ class TestOptionAbbreviation:
         assert "version" not in result.options
         assert "help" not in result.options
 
-    def test_ambiguous_prefix_raises_error(self):
-        spec = CommandSpecification(
+    def test_ambiguous_prefix_raises_error(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        spec = make_command(
             name="test",
             options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-                "version": FlagOptionSpecification(
-                    name="version",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="version",
-                    long_names=("version",),
-                    short_names=(),
-                ),
+                "verbose": make_flag_opt(name="verbose"),
+                "version": make_flag_opt(name="version"),
             },
         )
         config = ParserConfiguration(allow_abbreviated_options=True)
@@ -81,26 +57,16 @@ class TestOptionAbbreviation:
         assert "verbose" in exc_info.value.matched
         assert "version" in exc_info.value.matched
 
-    def test_exact_match_takes_precedence_over_prefix(self):
-        spec = CommandSpecification(
+    def test_exact_match_takes_precedence_over_prefix(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        spec = make_command(
             name="test",
             options={
-                "help": FlagOptionSpecification(
-                    name="help",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="help",
-                    long_names=("help",),
-                    short_names=(),
-                ),
-                "helpful": FlagOptionSpecification(
-                    name="helpful",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="helpful",
-                    long_names=("helpful",),
-                    short_names=(),
-                ),
+                "help": make_flag_opt(name="help"),
+                "helpful": make_flag_opt(name="helpful"),
             },
         )
         config = ParserConfiguration(allow_abbreviated_options=True)
@@ -110,26 +76,16 @@ class TestOptionAbbreviation:
         assert result.options["help"] is True
         assert "helpful" not in result.options
 
-    def test_abbreviation_with_values(self):
-        spec = CommandSpecification(
+    def test_abbreviation_with_values(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        spec = make_command(
             name="test",
             options={
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=("output",),
-                    short_names=(),
-                ),
-                "optimize": ValueOptionSpecification(
-                    name="optimize",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="optimize",
-                    long_names=("optimize",),
-                    short_names=(),
-                ),
+                "output": make_value_opt(name="output"),
+                "optimize": make_value_opt(name="optimize"),
             },
         )
         config = ParserConfiguration(allow_abbreviated_options=True)
@@ -139,19 +95,14 @@ class TestOptionAbbreviation:
         assert result.options["output"] == "file.txt"
         assert result.options["optimize"] == "3"
 
-    def test_abbreviation_disabled_in_config(self):
-        spec = CommandSpecification(
+    def test_abbreviation_disabled_in_config(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        spec = make_command(
             name="test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-            },
+            options={"verbose": make_flag_opt(name="verbose")},
         )
         config = ParserConfiguration(allow_abbreviated_options=False)
 
@@ -160,26 +111,16 @@ class TestOptionAbbreviation:
 
         assert exc_info.value.option == "verb"
 
-    def test_minimum_abbreviation_length(self):
-        spec = CommandSpecification(
+    def test_minimum_abbreviation_length(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        spec = make_command(
             name="test",
             options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-                "version": FlagOptionSpecification(
-                    name="version",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="version",
-                    long_names=("version",),
-                    short_names=(),
-                ),
+                "verbose": make_flag_opt(name="verbose"),
+                "version": make_flag_opt(name="version"),
             },
         )
         config = ParserConfiguration(
@@ -195,26 +136,19 @@ class TestOptionAbbreviation:
         result = parse_command_line_args(spec, ["--vers"], config)
         assert "version" in result.options
 
-    def test_interaction_with_aliases(self):
-        spec = CommandSpecification(
+    def test_interaction_with_aliases(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        spec = make_command(
             name="test",
             options={
-                "verbose": ValueOptionSpecification(
-                    name="verbose",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose", "verbosity"),
-                    short_names=(),
+                "verbose": make_value_opt(
+                    name="verbose", long_names=("verbose", "verbosity")
                 ),
-                "version": FlagOptionSpecification(
-                    name="version",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="version",
-                    long_names=("version",),
-                    short_names=(),
-                ),
+                "version": make_flag_opt(name="version"),
             },
         )
         config = ParserConfiguration(allow_abbreviated_options=True)
@@ -229,26 +163,16 @@ class TestOptionAbbreviation:
         assert "verbose" in result.options
         assert result.options["verbose"] == "2"
 
-    def test_case_sensitivity_in_abbreviation(self):
-        spec = CommandSpecification(
+    def test_case_sensitivity_in_abbreviation(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        spec = make_command(
             name="test",
             options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-                "VERSION": FlagOptionSpecification(
-                    name="VERSION",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="VERSION",
-                    long_names=("VERSION",),
-                    short_names=(),
-                ),
+                "verbose": make_flag_opt(name="verbose"),
+                "VERSION": make_flag_opt(name="VERSION"),
             },
         )
 
@@ -271,26 +195,16 @@ class TestOptionAbbreviation:
 
 
 class TestInteractionWithAbbreviation:
-    def test_inline_value_without_equals_with_abbreviation_enabled(self):
-        spec = CommandSpecification(
+    def test_inline_value_without_equals_with_abbreviation_enabled(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        spec = make_command(
             name="test",
             options={
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=("output",),
-                    short_names=(),
-                ),
-                "optimize": ValueOptionSpecification(
-                    name="optimize",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="optimize",
-                    long_names=("optimize",),
-                    short_names=(),
-                ),
+                "output": make_value_opt(name="output"),
+                "optimize": make_value_opt(name="optimize"),
             },
         )
         config = ParserConfiguration(
@@ -302,26 +216,16 @@ class TestInteractionWithAbbreviation:
 
         assert result.options["output"] == "file.txt"
 
-    def test_abbreviation_takes_precedence_over_inline_prefix_match(self):
-        spec = CommandSpecification(
+    def test_abbreviation_takes_precedence_over_inline_prefix_match(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        spec = make_command(
             name="test",
             options={
-                "out": ValueOptionSpecification(
-                    name="out",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="out",
-                    long_names=("out",),
-                    short_names=(),
-                ),
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=("output",),
-                    short_names=(),
-                ),
+                "out": make_value_opt(name="out"),
+                "output": make_value_opt(name="output"),
             },
         )
         config = ParserConfiguration(
@@ -334,26 +238,16 @@ class TestInteractionWithAbbreviation:
         assert result.options["out"] == "value"
         assert "output" not in result.options
 
-    def test_ambiguous_abbreviation_with_inline_values(self):
-        spec = CommandSpecification(
+    def test_ambiguous_abbreviation_with_inline_values(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        spec = make_command(
             name="test",
             options={
-                "verbose": ValueOptionSpecification(
-                    name="verbose",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-                "version": ValueOptionSpecification(
-                    name="version",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="version",
-                    long_names=("version",),
-                    short_names=(),
-                ),
+                "verbose": make_value_opt(name="verbose"),
+                "version": make_value_opt(name="version"),
             },
         )
         config = ParserConfiguration(

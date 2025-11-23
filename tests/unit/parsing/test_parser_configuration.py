@@ -1,111 +1,105 @@
+from typing import TYPE_CHECKING
+
 import pytest
 
 from flagrant.configuration import ParserConfiguration
 from flagrant.parser import parse_command_line_args
 from flagrant.parser.exceptions import UnknownOptionError, UnknownSubcommandError
-from flagrant.specification import (
-    Arity,
-    CommandSpecification,
-    FlagOptionSpecification,
-    ValueOptionSpecification,
-)
+
+if TYPE_CHECKING:
+    from flagrant.specification import (
+        CommandSpecificationFactory,
+        FlagOptionSpecificationFactory,
+        ValueOptionSpecificationFactory,
+    )
 
 
 class TestUnderscoreHyphenConversion:
-    def test_underscore_to_hyphen_conversion_in_option_names(self):
-        spec = CommandSpecification(
-            name="test",
-            options={
-                "log-level": FlagOptionSpecification(
-                    name="log-level",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="log-level",
-                    long_names=("log-level",),
-                    short_names=(),
-                ),
-            },
-        )
-        config = ParserConfiguration(convert_underscores=True)
-
-        result = parse_command_line_args(spec, ["--log_level"], config)
-        assert result.options["log-level"] is True
-
-    def test_hyphen_to_underscore_conversion(self):
-        spec = CommandSpecification(
-            name="test",
-            options={
-                "dry-run": FlagOptionSpecification(
-                    name="dry-run",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="dry-run",
-                    long_names=("dry-run",),
-                    short_names=(),
-                ),
-            },
-        )
-        config = ParserConfiguration(convert_underscores=True)
-
-        result = parse_command_line_args(spec, ["--dry_run"], config)
-        assert result.options["dry-run"] is True
-
-    def test_conversion_disabled(self):
-        spec = CommandSpecification(
-            name="test",
-            options={
-                "log-level": FlagOptionSpecification(
-                    name="log-level",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="log-level",
-                    long_names=("log-level",),
-                    short_names=(),
-                ),
-            },
-        )
-        config = ParserConfiguration(convert_underscores=False)
-
-        with pytest.raises(UnknownOptionError) as exc_info:
-            parse_command_line_args(spec, ["--log_level"], config)
-
-        assert exc_info.value.option == "log_level"
-
-    def test_conversion_with_abbreviation(self):
-        spec = CommandSpecification(
-            name="test",
-            options={
-                "log-level": FlagOptionSpecification(
-                    name="log-level",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="log-level",
-                    long_names=("log-level",),
-                    short_names=(),
-                ),
-            },
-        )
+    @pytest.mark.parametrize(
+        (
+            "name",
+            "option_kwargs",
+            "convert_underscores",
+            "input_arg",
+            "expected_key",
+            "expect_error",
+        ),
+        [
+            (
+                "underscore_to_hyphen",
+                {"name": "log-level"},
+                True,
+                "--log_level",
+                "log-level",
+                False,
+            ),
+            (
+                "hyphen_to_underscore",
+                {"name": "dry-run"},
+                True,
+                "--dry_run",
+                "dry-run",
+                False,
+            ),
+            (
+                "conversion_disabled",
+                {"name": "log-level"},
+                False,
+                "--log_level",
+                "log_level",  # Error expected
+                True,
+            ),
+            (
+                "conversion_with_abbreviation",
+                {"name": "log-level"},
+                True,
+                "--log_l",
+                "log-level",
+                False,
+            ),
+            (
+                "conversion_with_aliases",
+                {"name": "log-level", "long_names": ("log-level", "logging-level")},
+                True,
+                "--logging_level",
+                "log-level",
+                False,
+            ),
+        ],
+    )
+    def test_underscore_conversion(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+        name: str,
+        option_kwargs: dict[str, object],
+        convert_underscores: bool,
+        input_arg: str,
+        expected_key: str,
+        expect_error: bool,
+    ):
+        opt = make_flag_opt(**option_kwargs)  # type: ignore[reportArgumentType]
+        spec = make_command(options={opt.name: opt})
         config = ParserConfiguration(
-            convert_underscores=True, allow_abbreviated_options=True
+            convert_underscores=convert_underscores,
+            allow_abbreviated_options=True,  # For abbreviation test
         )
 
-        result = parse_command_line_args(spec, ["--log_l"], config)
-        assert result.options["log-level"] is True
+        if expect_error:
+            with pytest.raises(UnknownOptionError) as exc_info:
+                parse_command_line_args(spec, [input_arg], config)
+            assert exc_info.value.option == expected_key
+        else:
+            result = parse_command_line_args(spec, [input_arg], config)
+            assert result.options[expected_key] is True
 
-    def test_conversion_preserves_original_in_error_messages(self):
-        spec = CommandSpecification(
-            name="test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-            },
-        )
+    def test_conversion_preserves_original_in_error_messages(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        opt = make_flag_opt(name="verbose")
+        spec = make_command(options={"verbose": opt})
         config = ParserConfiguration(convert_underscores=True)
 
         with pytest.raises(UnknownOptionError) as exc_info:
@@ -113,32 +107,14 @@ class TestUnderscoreHyphenConversion:
 
         assert exc_info.value.option == "log_level"
 
-    def test_conversion_with_aliases(self):
-        spec = CommandSpecification(
-            name="test",
-            options={
-                "log-level": FlagOptionSpecification(
-                    name="log-level",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="log-level",
-                    long_names=("log-level", "logging-level"),
-                    short_names=(),
-                ),
-            },
-        )
-        config = ParserConfiguration(convert_underscores=True)
-
-        result = parse_command_line_args(spec, ["--logging_level"], config)
-        assert result.options["log-level"] is True
-
-    def test_conversion_in_subcommand_names(self):
-        spec = CommandSpecification(
-            name="test",
-            subcommands={
-                "run-tests": CommandSpecification("run-tests"),
-                "build-docs": CommandSpecification("build-docs"),
-            },
+    def test_conversion_in_subcommand_names(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        run_tests = make_command("run-tests")
+        build_docs = make_command("build-docs")
+        spec = make_command(
+            subcommands={"run-tests": run_tests, "build-docs": build_docs}
         )
         config = ParserConfiguration(convert_underscores=True)
 
@@ -148,57 +124,64 @@ class TestUnderscoreHyphenConversion:
 
 
 class TestCaseInsensitivity:
-    def test_case_insensitive_long_options(self):
-        spec = CommandSpecification(
-            name="test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-            },
-        )
+    @pytest.mark.parametrize(
+        ("name", "option_kwargs", "input_arg"),
+        [
+            (
+                "long_uppercase",
+                {"name": "verbose"},
+                "--VERBOSE",
+            ),
+            (
+                "long_capitalized",
+                {"name": "verbose"},
+                "--Verbose",
+            ),
+            (
+                "long_mixed",
+                {"name": "verbose"},
+                "--VeRbOsE",
+            ),
+            (
+                "short_uppercase",
+                {"name": "verbose", "long_names": (), "short_names": ("v",)},
+                "-V",
+            ),
+            (
+                "mixed_case_name",
+                {"name": "LogLevel", "long_names": ("LogLevel",)},
+                "--loglevel",
+            ),
+            (
+                "mixed_case_name_uppercase",
+                {"name": "LogLevel", "long_names": ("LogLevel",)},
+                "--LOGLEVEL",
+            ),
+        ],
+    )
+    def test_case_insensitive_option_matching(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+        name: str,
+        option_kwargs: dict[str, object],
+        input_arg: str,
+    ):
+        opt = make_flag_opt(**option_kwargs)  # type: ignore[reportArgumentType]
+        spec = make_command(options={opt.name: opt})
         config = ParserConfiguration(case_sensitive_options=False)
 
-        result1 = parse_command_line_args(spec, ["--VERBOSE"], config)
-        result2 = parse_command_line_args(spec, ["--Verbose"], config)
-        result3 = parse_command_line_args(spec, ["--VeRbOsE"], config)
+        result = parse_command_line_args(spec, [input_arg], config)
 
-        assert result1.options["verbose"] is True
-        assert result2.options["verbose"] is True
-        assert result3.options["verbose"] is True
+        assert result.options[opt.name] is True
 
-    def test_case_insensitive_short_options(self):
-        spec = CommandSpecification(
-            name="test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=(),
-                    short_names=("v",),
-                ),
-            },
-        )
-        config = ParserConfiguration(case_sensitive_options=False)
-
-        result = parse_command_line_args(spec, ["-V"], config)
-        assert result.options["verbose"] is True
-
-    def test_case_insensitive_subcommands(self):
-        spec = CommandSpecification(
-            name="test",
-            subcommands={
-                "build": CommandSpecification("build"),
-                "test": CommandSpecification("test"),
-            },
-        )
+    def test_case_insensitive_subcommands(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        build_cmd = make_command("build")
+        test_cmd = make_command("test")
+        spec = make_command(subcommands={"build": build_cmd, "test": test_cmd})
         config = ParserConfiguration(case_sensitive_commands=False)
 
         result1 = parse_command_line_args(spec, ["BUILD"], config)
@@ -209,45 +192,28 @@ class TestCaseInsensitivity:
         assert result2.subcommand is not None
         assert result2.subcommand.command == "test"
 
-    def test_case_preservation_in_results(self):
-        spec = CommandSpecification(
-            name="test",
-            options={
-                "path": ValueOptionSpecification(
-                    name="path",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="path",
-                    long_names=("path",),
-                    short_names=(),
-                ),
-            },
-        )
+    def test_case_preservation_in_results(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="path")
+        spec = make_command(options={"path": opt})
         config = ParserConfiguration(case_sensitive_options=False)
 
         result = parse_command_line_args(spec, ["--PATH=MyFile.txt"], config)
         assert result.options["path"] == "MyFile.txt"
 
-    def test_interaction_with_abbreviation(self):
-        spec = CommandSpecification(
+    def test_interaction_with_abbreviation(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        spec = make_command(
             name="test",
             options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-                "version": FlagOptionSpecification(
-                    name="version",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="version",
-                    long_names=("version",),
-                    short_names=(),
-                ),
+                "verbose": make_flag_opt(name="verbose"),
+                "version": make_flag_opt(name="version"),
             },
         )
         config = ParserConfiguration(
@@ -257,23 +223,14 @@ class TestCaseInsensitivity:
         result = parse_command_line_args(spec, ["--VERB"], config)
         assert result.options["verbose"] is True
 
-    def test_partial_case_insensitivity_options_only(self):
-        spec = CommandSpecification(
-            name="test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-            },
-            subcommands={
-                "build": CommandSpecification("build"),
-            },
-        )
+    def test_partial_case_insensitivity_options_only(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        opt = make_flag_opt(name="verbose")
+        build_cmd = make_command("build")
+        spec = make_command(options={"verbose": opt}, subcommands={"build": build_cmd})
         config = ParserConfiguration(
             case_sensitive_options=False, case_sensitive_commands=True
         )
@@ -284,47 +241,16 @@ class TestCaseInsensitivity:
         with pytest.raises(UnknownSubcommandError):
             parse_command_line_args(spec, ["BUILD"], config)
 
-    def test_error_messages_with_case_insensitivity(self):
-        spec = CommandSpecification(
-            name="test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-            },
-        )
+    def test_error_messages_with_case_insensitivity(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        opt = make_flag_opt(name="verbose")
+        spec = make_command(options={"verbose": opt})
         config = ParserConfiguration(case_sensitive_options=False)
 
         with pytest.raises(UnknownOptionError) as exc_info:
             parse_command_line_args(spec, ["--UNKNOWN"], config)
 
         assert exc_info.value.option == "UNKNOWN"
-
-    def test_mixed_case_input_handling(self):
-        spec = CommandSpecification(
-            name="test",
-            options={
-                "LogLevel": FlagOptionSpecification(
-                    name="LogLevel",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="LogLevel",
-                    long_names=("LogLevel",),
-                    short_names=(),
-                ),
-            },
-        )
-        config = ParserConfiguration(case_sensitive_options=False)
-
-        result1 = parse_command_line_args(spec, ["--loglevel"], config)
-        result2 = parse_command_line_args(spec, ["--LOGLEVEL"], config)
-        result3 = parse_command_line_args(spec, ["--LogLevel"], config)
-
-        assert result1.options["LogLevel"] is True
-        assert result2.options["LogLevel"] is True
-        assert result3.options["LogLevel"] is True

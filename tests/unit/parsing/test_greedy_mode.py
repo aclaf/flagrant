@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 import pytest
 
 from flagrant.configuration import ParserConfiguration
@@ -5,27 +7,24 @@ from flagrant.parser import parse_command_line_args
 from flagrant.parser.exceptions import OptionMissingValueError
 from flagrant.specification import (
     Arity,
-    CommandSpecification,
-    FlagOptionSpecification,
-    ValueOptionSpecification,
 )
+
+if TYPE_CHECKING:
+    from flagrant.specification import (
+        CommandSpecificationFactory,
+        FlagOptionSpecificationFactory,
+        ValueOptionSpecificationFactory,
+    )
 
 
 class TestGreedyModeBasic:
-    def test_greedy_option_consumes_all_remaining_arguments(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "files": ValueOptionSpecification(
-                    name="files",
-                    arity=Arity.at_least_one(),
-                    greedy=True,
-                    preferred_name="files",
-                    long_names=("files",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_greedy_option_consumes_all_remaining_arguments(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="files", arity=Arity.at_least_one(), greedy=True)
+        spec = make_command(options={"files": opt})
 
         result = parse_command_line_args(
             spec, ["--files", "file1.txt", "--output", "file2.txt", "-v"]
@@ -33,20 +32,13 @@ class TestGreedyModeBasic:
 
         assert result.options["files"] == ("file1.txt", "--output", "file2.txt", "-v")
 
-    def test_greedy_option_at_end_of_arguments(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "files": ValueOptionSpecification(
-                    name="files",
-                    arity=Arity.at_least_one(),
-                    greedy=True,
-                    preferred_name="files",
-                    long_names=("files",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_greedy_option_at_end_of_arguments(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="files", arity=Arity.at_least_one(), greedy=True)
+        spec = make_command(options={"files": opt})
 
         result = parse_command_line_args(spec, ["--files", "single.txt"])
 
@@ -54,20 +46,13 @@ class TestGreedyModeBasic:
 
 
 class TestGreedyModeWithDelimiter:
-    def test_greedy_option_consumes_delimiter_and_trailing_args(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "args": ValueOptionSpecification(
-                    name="args",
-                    arity=Arity.at_least_one(),
-                    greedy=True,
-                    preferred_name="args",
-                    long_names=("args",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_greedy_option_consumes_delimiter_and_trailing_args(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="args", arity=Arity.at_least_one(), greedy=True)
+        spec = make_command(options={"args": opt})
 
         result = parse_command_line_args(
             spec, ["--args", "a", "b", "c", "--", "positional"]
@@ -77,21 +62,14 @@ class TestGreedyModeWithDelimiter:
 
 
 class TestGreedyModeWithSubcommands:
-    def test_greedy_option_stops_at_subcommand(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "files": ValueOptionSpecification(
-                    name="files",
-                    arity=Arity.at_least_one(),
-                    greedy=True,
-                    preferred_name="files",
-                    long_names=("files",),
-                    short_names=(),
-                )
-            },
-            subcommands={"build": CommandSpecification("build")},
-        )
+    def test_greedy_option_stops_at_subcommand(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="files", arity=Arity.at_least_one(), greedy=True)
+        build_cmd = make_command("build")
+        spec = make_command(options={"files": opt}, subcommands={"build": build_cmd})
 
         result = parse_command_line_args(
             spec, ["--files", "file.txt", "build", "other.txt"]
@@ -103,20 +81,15 @@ class TestGreedyModeWithSubcommands:
 
 
 class TestGreedyModeArityEnforcement:
-    def test_greedy_option_enforces_minimum_arity(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "coords": ValueOptionSpecification(
-                    name="coords",
-                    arity=Arity(2, None),
-                    greedy=True,
-                    preferred_name="coords",
-                    long_names=("coords",),
-                    short_names=(),
-                )
-            },
+    def test_greedy_option_enforces_minimum_arity(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(
+            name="coords", arity=Arity(2, None), greedy=True, short_names=()
         )
+        spec = make_command(options={"coords": opt})
 
         with pytest.raises(OptionMissingValueError) as exc_info:
             _ = parse_command_line_args(spec, ["--coords", "10"])
@@ -125,20 +98,13 @@ class TestGreedyModeArityEnforcement:
 
 
 class TestGreedyModeInlineValues:
-    def test_greedy_option_with_inline_value_consumes_remaining_args(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "files": ValueOptionSpecification(
-                    name="files",
-                    arity=Arity.at_least_one(),
-                    greedy=True,
-                    preferred_name="files",
-                    long_names=("files",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_greedy_option_with_inline_value_consumes_remaining_args(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="files", arity=Arity.at_least_one(), greedy=True)
+        spec = make_command(options={"files": opt})
 
         result = parse_command_line_args(
             spec, ["--files=first.txt", "second.txt", "third.txt"]
@@ -146,39 +112,25 @@ class TestGreedyModeInlineValues:
 
         assert result.options["files"] == ("first.txt", "second.txt", "third.txt")
 
-    def test_greedy_option_inline_value_satisfies_minimum_arity(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "files": ValueOptionSpecification(
-                    name="files",
-                    arity=Arity(2, None),
-                    greedy=True,
-                    preferred_name="files",
-                    long_names=("files",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_greedy_option_inline_value_satisfies_minimum_arity(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="files", arity=Arity(2, None), greedy=True)
+        spec = make_command(options={"files": opt})
 
         result = parse_command_line_args(spec, ["--files=first.txt", "second.txt"])
 
         assert result.options["files"] == ("first.txt", "second.txt")
 
-    def test_greedy_option_inline_value_insufficient_arity_raises_error(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "files": ValueOptionSpecification(
-                    name="files",
-                    arity=Arity(3, None),
-                    greedy=True,
-                    preferred_name="files",
-                    long_names=("files",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_greedy_option_inline_value_insufficient_arity_raises_error(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="files", arity=Arity(3, None), greedy=True)
+        spec = make_command(options={"files": opt})
 
         with pytest.raises(OptionMissingValueError) as exc_info:
             _ = parse_command_line_args(spec, ["--files=first.txt", "second.txt"])
@@ -187,20 +139,13 @@ class TestGreedyModeInlineValues:
 
 
 class TestGreedyModeNegativeNumbers:
-    def test_greedy_option_consumes_negative_numbers(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "values": ValueOptionSpecification(
-                    name="values",
-                    arity=Arity.at_least_one(),
-                    greedy=True,
-                    preferred_name="values",
-                    long_names=("values",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_greedy_option_consumes_negative_numbers(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="values", arity=Arity.at_least_one(), greedy=True)
+        spec = make_command(options={"values": opt})
         config = ParserConfiguration(allow_negative_numbers=True)
 
         result = parse_command_line_args(
@@ -209,28 +154,17 @@ class TestGreedyModeNegativeNumbers:
 
         assert result.options["values"] == ("10", "-5", "3.14", "-99.9")
 
-    def test_greedy_option_stops_at_option_not_negative_number(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "values": ValueOptionSpecification(
-                    name="values",
-                    arity=Arity.at_least_one(),
-                    greedy=True,
-                    preferred_name="values",
-                    long_names=("values",),
-                    short_names=(),
-                ),
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-            },
+    def test_greedy_option_stops_at_option_not_negative_number(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        opt_values = make_value_opt(
+            name="values", arity=Arity.at_least_one(), greedy=True
         )
+        opt_verbose = make_flag_opt(name="verbose")
+        spec = make_command(options={"values": opt_values, "verbose": opt_verbose})
         config = ParserConfiguration(allow_negative_numbers=True)
 
         result = parse_command_line_args(
@@ -240,20 +174,13 @@ class TestGreedyModeNegativeNumbers:
         assert result.options["values"] == ("10", "-5")
         assert result.options["verbose"] is True
 
-    def test_greedy_option_with_negative_number_config_disabled(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "values": ValueOptionSpecification(
-                    name="values",
-                    arity=Arity.at_least_one(),
-                    greedy=True,
-                    preferred_name="values",
-                    long_names=("values",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_greedy_option_with_negative_number_config_disabled(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="values", arity=Arity.at_least_one(), greedy=True)
+        spec = make_command(options={"values": opt})
         config = ParserConfiguration(allow_negative_numbers=False)
 
         result = parse_command_line_args(

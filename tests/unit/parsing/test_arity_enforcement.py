@@ -35,7 +35,6 @@ class TestExactArityPatterns:
                     name="coordinate",
                     arity=Arity(2, 2),
                     greedy=False,
-                    preferred_name="coordinate",
                     long_names=("coordinate",),
                     short_names=(),
                 )
@@ -54,7 +53,6 @@ class TestExactArityPatterns:
                     name="rgb",
                     arity=Arity(3, 3),
                     greedy=False,
-                    preferred_name="rgb",
                     long_names=("rgb",),
                     short_names=(),
                 )
@@ -73,7 +71,6 @@ class TestExactArityPatterns:
                     name="output",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="output",
                     long_names=("output",),
                     short_names=(),
                 )
@@ -96,7 +93,6 @@ class TestInsufficientValuesErrors:
                     name="output",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="output",
                     long_names=("output",),
                     short_names=(),
                 )
@@ -114,7 +110,6 @@ class TestInsufficientValuesErrors:
                     name="coordinate",
                     arity=Arity(2, 2),
                     greedy=False,
-                    preferred_name="coordinate",
                     long_names=("coordinate",),
                     short_names=(),
                 )
@@ -132,7 +127,6 @@ class TestInsufficientValuesErrors:
                     name="rgb",
                     arity=Arity(3, 3),
                     greedy=False,
-                    preferred_name="rgb",
                     long_names=("rgb",),
                     short_names=(),
                 )
@@ -167,7 +161,6 @@ class TestBoundedArityRanges:
                     name="output",
                     arity=Arity.at_most_one(),
                     greedy=False,
-                    preferred_name="output",
                     long_names=("output",),
                     short_names=(),
                 )
@@ -186,7 +179,6 @@ class TestBoundedArityRanges:
                     name="output",
                     arity=Arity.at_most_one(),
                     greedy=False,
-                    preferred_name="output",
                     long_names=("output",),
                     short_names=(),
                 )
@@ -205,7 +197,6 @@ class TestBoundedArityRanges:
                     name="output",
                     arity=Arity.at_most_one(),
                     greedy=False,
-                    preferred_name="output",
                     long_names=("output",),
                     short_names=(),
                 )
@@ -226,7 +217,6 @@ class TestBoundedArityRanges:
                     name="files",
                     arity=Arity(1, 2),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 )
@@ -245,7 +235,6 @@ class TestBoundedArityRanges:
                     name="files",
                     arity=Arity(1, 2),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 )
@@ -264,7 +253,6 @@ class TestBoundedArityRanges:
                     name="files",
                     arity=Arity(1, 2),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 )
@@ -285,7 +273,6 @@ class TestBoundedArityRanges:
                     name="values",
                     arity=Arity(2, 5),
                     greedy=False,
-                    preferred_name="values",
                     long_names=("values",),
                     short_names=(),
                 )
@@ -304,7 +291,6 @@ class TestBoundedArityRanges:
                     name="values",
                     arity=Arity(2, 5),
                     greedy=False,
-                    preferred_name="values",
                     long_names=("values",),
                     short_names=(),
                 )
@@ -323,7 +309,6 @@ class TestBoundedArityRanges:
                     name="values",
                     arity=Arity(2, 5),
                     greedy=False,
-                    preferred_name="values",
                     long_names=("values",),
                     short_names=(),
                 )
@@ -348,7 +333,6 @@ class TestUnboundedArity:
                     name="files",
                     arity=Arity.zero_or_more(),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 )
@@ -367,7 +351,6 @@ class TestUnboundedArity:
                     name="files",
                     arity=Arity.zero_or_more(),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 )
@@ -386,7 +369,6 @@ class TestUnboundedArity:
                     name="files",
                     arity=Arity.at_least_one(),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 )
@@ -404,7 +386,6 @@ class TestUnboundedArity:
                     name="files",
                     arity=Arity.at_least_one(),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 )
@@ -423,7 +404,6 @@ class TestUnboundedArity:
                     name="files",
                     arity=Arity.at_least_one(),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 )
@@ -442,7 +422,6 @@ class TestUnboundedArity:
                     name="files",
                     arity=Arity(2, None),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 )
@@ -460,7 +439,6 @@ class TestUnboundedArity:
                     name="files",
                     arity=Arity(2, None),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 )
@@ -479,7 +457,6 @@ class TestUnboundedArity:
                     name="files",
                     arity=Arity(2, None),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 )
@@ -502,7 +479,6 @@ class TestStoppingConditions:
                     name="files",
                     arity=Arity.zero_or_more(),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 ),
@@ -510,7 +486,6 @@ class TestStoppingConditions:
                     name="verbose",
                     arity=Arity.none(),
                     greedy=False,
-                    preferred_name="verbose",
                     long_names=("verbose",),
                     short_names=(),
                 ),
@@ -533,7 +508,6 @@ class TestStoppingConditions:
                     name="files",
                     arity=Arity.zero_or_more(),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 )
@@ -555,7 +529,6 @@ class TestStoppingConditions:
                     name="files",
                     arity=Arity(1, 3),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 )
@@ -578,7 +551,6 @@ class TestStoppingConditions:
                     name="files",
                     arity=Arity.zero_or_more(),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 )
@@ -597,7 +569,6 @@ class TestStoppingConditions:
                     name="files",
                     arity=Arity.zero_or_more(),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 )
@@ -618,7 +589,6 @@ class TestInlineValueCounting:
                     name="output",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="output",
                     long_names=("output",),
                     short_names=(),
                 )
@@ -637,7 +607,6 @@ class TestInlineValueCounting:
                     name="output",
                     arity=Arity.at_most_one(),
                     greedy=False,
-                    preferred_name="output",
                     long_names=("output",),
                     short_names=(),
                 )
@@ -656,7 +625,6 @@ class TestInlineValueCounting:
                     name="coordinate",
                     arity=Arity(2, 2),
                     greedy=False,
-                    preferred_name="coordinate",
                     long_names=("coordinate",),
                     short_names=(),
                 )
@@ -674,7 +642,6 @@ class TestInlineValueCounting:
                     name="files",
                     arity=Arity.zero_or_more(),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 )
@@ -765,7 +732,6 @@ class TestResultTypeScalarVsTuple:
                     name="output",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="output",
                     long_names=("output",),
                     short_names=(),
                     accumulation_mode=ValueAccumulationMode.LAST,
@@ -786,7 +752,6 @@ class TestResultTypeScalarVsTuple:
                     name="output",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="output",
                     long_names=("output",),
                     short_names=(),
                     accumulation_mode=ValueAccumulationMode.FIRST,
@@ -807,7 +772,6 @@ class TestResultTypeScalarVsTuple:
                     name="output",
                     arity=Arity.at_most_one(),
                     greedy=False,
-                    preferred_name="output",
                     long_names=("output",),
                     short_names=(),
                     accumulation_mode=ValueAccumulationMode.LAST,
@@ -828,7 +792,6 @@ class TestResultTypeScalarVsTuple:
                     name="output",
                     arity=Arity.at_most_one(),
                     greedy=False,
-                    preferred_name="output",
                     long_names=("output",),
                     short_names=(),
                     accumulation_mode=ValueAccumulationMode.LAST,
@@ -849,7 +812,6 @@ class TestResultTypeScalarVsTuple:
                     name="coordinate",
                     arity=Arity(2, 2),
                     greedy=False,
-                    preferred_name="coordinate",
                     long_names=("coordinate",),
                     short_names=(),
                 )
@@ -869,7 +831,6 @@ class TestResultTypeScalarVsTuple:
                     name="files",
                     arity=Arity.zero_or_more(),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 )

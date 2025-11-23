@@ -35,7 +35,7 @@ from .validations import (
 
 if TYPE_CHECKING:
     import re
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Sequence
 
     from flagrant.types import FrozenOptionNames
 
@@ -51,14 +51,12 @@ class OptionSpecification:
         arity: The number of values expected for each occurrence. See `Arity`.
         greedy: If True, consumes all subsequent arguments as values.
             If False, consumes until the next option or subcommand.
-        preferred_name: The preferred name used in parse results.
         case_sensitive: Whether the option names are case sensitive.
     """
 
     name: str
     arity: Arity
     greedy: bool
-    preferred_name: str
     long_names: tuple[str, ...]
     short_names: tuple[str, ...]
     case_sensitive: bool = True
@@ -68,7 +66,6 @@ class OptionSpecification:
         name: str,
         *,
         arity: Arity | None = None,
-        preferred_name: str | None = None,
         case_sensitive: bool = True,
         convert_underscores: bool = DEFAULT_CONVERT_UNDERSCORES,
         greedy: bool = False,
@@ -95,18 +92,11 @@ class OptionSpecification:
         object.__setattr__(self, "arity", arity or Arity.exactly_one())
         object.__setattr__(self, "greedy", greedy)
 
-        default_name = preferred_name or name
         if not long_names and not short_names:
             if len(name) == 1:
-                short_names = (default_name,)
+                short_names = (name,)
             else:
-                long_names = (default_name,)
-
-        if preferred_name is None and long_names:
-            preferred_name = long_names[0]
-        elif preferred_name is None and short_names:
-            preferred_name = short_names[0]
-        object.__setattr__(self, "preferred_name", preferred_name)
+                long_names = (name,)
 
         normalized_long_names = tuple(n.lstrip("-") for n in (long_names or ()))
         normalized_short_names = tuple(n.lstrip("-") for n in (short_names or ()))
@@ -426,84 +416,3 @@ def is_non_flag_option(
 ) -> TypeIs[NonFlagOptionSpecificationType]:
     """Check if the given specification is a non-flag option."""
     return is_dict_option(spec) or is_value_option(spec)
-
-
-def create_dict_option_specification(  # noqa: D417, PLR0913
-    name: str,
-    *,
-    arity: Arity,
-    greedy: bool,
-    preferred_name: str,
-    long_names: "Iterable[str]",
-    short_names: "Iterable[str]",
-    case_sensitive: bool = True,
-    accumulation_mode: DictAccumulationMode = DictAccumulationMode.MERGE,
-    allow_duplicate_list_indices: bool = False,
-    allow_item_separator: bool = True,
-    allow_nested: bool = True,
-    allow_sparse_lists: bool = False,
-    case_sensitive_keys: bool = True,
-    escape_character: str | None = None,
-    item_separator: str | None = None,
-    key_value_separator: str | None = None,
-    merge_strategy: DictMergeStrategy = DictMergeStrategy.DEEP,
-    nesting_separator: str | None = None,
-    strict_structure: bool | None = None,
-) -> DictOptionSpecification:
-    """Create a DictOptionSpecification with the given parameters.
-
-    Args:
-        name: The canonical name for the option.
-        long_names: An iterable of long names for the option (e.g., "verbose").
-        short_names: An iterable of short names for the option (e.g., "v").
-        name: The canonical name for the option.
-        arity: The number of values expected for each occurrence. See `Arity`.
-        greedy: If True, consumes all subsequent arguments as values.
-            If False, consumes until the next option or subcommand.
-        preferred_name: The preferred name used in parse results.
-        case_sensitive: Whether the option names are case sensitive.
-        merge_strategy: The strategy for merging dictionaries when `MERGE`
-            is used. See [DictMergeStrategy][flagrant.enums.DictMergeStrategy].
-        key_value_separator: The character separating a key from a value.
-            Overrides the global `key_value_separator`.
-        nesting_separator: The character for denoting nested keys (e.g., ".").
-            Overrides the global `nesting_separator`.
-        allow_nested: If True, allows keys to be nested.
-        case_sensitive_keys: If True, keys are case-sensitive.
-        allow_duplicate_list_indices: If True, allows `list[0]=a list[0]=b`.
-        allow_sparse_lists: If True, allows `list[0]=a list[2]=c`.
-        strict_structure: If True, enforces strict structural rules. Overrides
-            the global `strict_structure`.
-        item_separator: A character to split a single argument into multiple
-            key-value pairs. Overrides the global `dict_item_separator`.
-        allow_item_separator: If True, enables the `item_separator`.
-        escape_character: Character to escape separators. Overrides
-            the global `dict_escape_character`.
-
-    Returns:
-        An instance of DictOptionSpecification.
-
-    Raises:
-        OptionSpecificationError: If any of the provided parameters are invalid.
-    """
-    return DictOptionSpecification(
-        name,
-        arity=arity,
-        greedy=greedy,
-        preferred_name=preferred_name,
-        long_names=tuple(long_names),
-        short_names=tuple(short_names),
-        case_sensitive=case_sensitive,
-        accumulation_mode=accumulation_mode,
-        allow_duplicate_list_indices=allow_duplicate_list_indices,
-        allow_item_separator=allow_item_separator,
-        allow_nested=allow_nested,
-        allow_sparse_lists=allow_sparse_lists,
-        case_sensitive_keys=case_sensitive_keys,
-        escape_character=escape_character,
-        item_separator=item_separator,
-        key_value_separator=key_value_separator,
-        merge_strategy=merge_strategy,
-        nesting_separator=nesting_separator,
-        strict_structure=strict_structure,
-    )

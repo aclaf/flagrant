@@ -16,24 +16,9 @@ class TestValueParsingEdgeCases:
     @pytest.mark.parametrize(
         ("name", "option_kwargs", "args", "expected_value"),
         [
-            (
-                "empty_string_via_equals",
-                {},
-                ["--option="],
-                "",
-            ),
-            (
-                "whitespace_only",
-                {},
-                ["--option", "   "],
-                "   ",
-            ),
-            (
-                "value_containing_equals",
-                {},
-                ["--option", "key=value"],
-                "key=value",
-            ),
+            ("empty_string_via_equals", {}, ["--option="], ""),
+            ("whitespace_only", {}, ["--option", "   "], "   "),
+            ("value_containing_equals", {}, ["--option", "key=value"], "key=value"),
             (
                 "negative_number_allowed",
                 {"allow_negative_numbers": True},
@@ -42,7 +27,7 @@ class TestValueParsingEdgeCases:
             ),
         ],
     )
-    def test_value_parsing_edge_cases(  # noqa: PLR0913
+    def test_value_parsing_edge_cases(
         self,
         make_command: "CommandSpecificationFactory",
         make_value_opt: "ValueOptionSpecificationFactory",

@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 import pytest
 
 from flagrant.configuration import ParserConfiguration
@@ -8,82 +10,60 @@ from flagrant.specification import (
     Arity,
     CommandSpecification,
     FlagOptionSpecification,
-    ValueOptionSpecification,
 )
+
+if TYPE_CHECKING:
+    from flagrant.specification import (
+        CommandSpecificationFactory,
+        FlagOptionSpecificationFactory,
+        ValueOptionSpecificationFactory,
+    )
 
 
 class TestLongOptionClassification:
-    def test_classify_argument_with_double_dash_prefix_as_long_option(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_classify_argument_with_double_dash_prefix_as_long_option(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        opt = make_flag_opt(name="verbose")
+        spec = make_command(options={"verbose": opt})
 
         result = parse_command_line_args(spec, ["--verbose"])
 
         assert result.options["verbose"] is True
 
-    def test_classify_single_character_after_double_dash_as_long_option(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "v": FlagOptionSpecification(
-                    name="v",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="v",
-                    long_names=("v",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_classify_single_character_after_double_dash_as_long_option(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        opt = make_flag_opt(name="v")
+        spec = make_command(options={"v": opt})
 
         result = parse_command_line_args(spec, ["--v"])
 
         assert result.options["v"] is True
 
-    def test_classify_long_option_with_alphanumeric_and_dash_characters(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "log-level-2": ValueOptionSpecification(
-                    name="log-level-2",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="log-level-2",
-                    long_names=("log-level-2",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_classify_long_option_with_alphanumeric_and_dash_characters(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="log-level-2")
+        spec = make_command(options={"log-level-2": opt})
 
         result = parse_command_line_args(spec, ["--log-level-2", "debug"])
 
         assert result.options["log-level-2"] == "debug"
 
-    def test_classify_standalone_double_dash_as_delimiter_not_option(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_classify_standalone_double_dash_as_delimiter_not_option(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        opt = make_flag_opt(name="verbose")
+        spec = make_command(options={"verbose": opt})
 
         result = parse_command_line_args(spec, ["--verbose", "--", "--not-option"])
 
@@ -91,20 +71,13 @@ class TestLongOptionClassification:
         assert result.extra_args == ("--not-option",)
         assert "not-option" not in result.options
 
-    def test_classify_long_option_with_equals_syntax(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=("output",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_classify_long_option_with_equals_syntax(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="output")
+        spec = make_command(options={"output": opt})
 
         result = parse_command_line_args(spec, ["--output=file.txt"])
 
@@ -112,73 +85,40 @@ class TestLongOptionClassification:
 
 
 class TestShortOptionClassification:
-    def test_classify_argument_with_single_dash_prefix_as_short_option(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="v",
-                    long_names=(),
-                    short_names=("v",),
-                )
-            },
-        )
+    def test_classify_argument_with_single_dash_prefix_as_short_option(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        opt = make_flag_opt(name="verbose", short_names=("v",))
+        spec = make_command(options={"verbose": opt})
 
         result = parse_command_line_args(spec, ["-v"])
 
         assert result.options["verbose"] is True
 
-    def test_classify_single_character_after_dash_as_short_option(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="o",
-                    long_names=(),
-                    short_names=("o",),
-                )
-            },
-        )
+    def test_classify_single_character_after_dash_as_short_option(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="output", short_names=("o",))
+        spec = make_command(options={"output": opt})
 
         result = parse_command_line_args(spec, ["-o", "file.txt"])
 
         assert result.options["output"] == "file.txt"
 
-    def test_classify_clustered_short_options_as_multiple_options(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="v",
-                    long_names=(),
-                    short_names=("v",),
-                ),
-                "quiet": FlagOptionSpecification(
-                    name="quiet",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="q",
-                    long_names=(),
-                    short_names=("q",),
-                ),
-                "force": FlagOptionSpecification(
-                    name="force",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="f",
-                    long_names=(),
-                    short_names=("f",),
-                ),
-            },
+    def test_classify_clustered_short_options_as_multiple_options(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        opt_v = make_flag_opt(name="verbose", short_names=("v",))
+        opt_q = make_flag_opt(name="quiet", short_names=("q",))
+        opt_f = make_flag_opt(name="force", short_names=("f",))
+        spec = make_command(
+            options={"verbose": opt_v, "quiet": opt_q, "force": opt_f}
         )
 
         result = parse_command_line_args(spec, ["-vqf"])
@@ -187,8 +127,11 @@ class TestShortOptionClassification:
         assert result.options["quiet"] is True
         assert result.options["force"] is True
 
-    def test_classify_single_dash_as_positional_not_option(self):
-        spec = CommandSpecification("test", positionals={"args": Arity.zero_or_more()})
+    def test_classify_single_dash_as_positional_not_option(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        spec = make_command(positionals={"args": Arity.zero_or_more()})
 
         result = parse_command_line_args(spec, ["-"])
 
@@ -196,42 +139,44 @@ class TestShortOptionClassification:
 
 
 class TestPositionalClassification:
-    def test_classify_argument_without_dash_prefix_as_positional(self):
-        spec = CommandSpecification("test", positionals={"args": Arity.zero_or_more()})
+    def test_classify_argument_without_dash_prefix_as_positional(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        spec = make_command(positionals={"args": Arity.zero_or_more()})
 
         result = parse_command_line_args(spec, ["file.txt"])
 
         assert result.positionals["args"] == ("file.txt",)
 
-    def test_classify_multiple_arguments_without_dash_as_positionals(self):
-        spec = CommandSpecification("test", positionals={"args": Arity.zero_or_more()})
+    def test_classify_multiple_arguments_without_dash_as_positionals(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        spec = make_command(positionals={"args": Arity.zero_or_more()})
 
         result = parse_command_line_args(spec, ["file1.txt", "file2.txt", "file3.txt"])
 
         assert result.positionals["args"] == ("file1.txt", "file2.txt", "file3.txt")
 
-    def test_classify_arguments_after_delimiter_as_trailing_args(self):
-        spec = CommandSpecification("test")
+    def test_classify_arguments_after_delimiter_as_trailing_args(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        spec = make_command()
 
         result = parse_command_line_args(spec, ["--", "arg1", "arg2"])
 
         assert result.extra_args == ("arg1", "arg2")
         assert "args" not in result.positionals or result.positionals["args"] == ()
 
-    def test_classify_all_arguments_after_delimiter_as_trailing_including_options(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_classify_all_arguments_after_delimiter_as_trailing_including_options(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        opt = make_flag_opt(name="verbose")
+        spec = make_command(options={"verbose": opt})
 
         result = parse_command_line_args(spec, ["--", "--verbose", "file.txt"])
 
@@ -240,68 +185,50 @@ class TestPositionalClassification:
 
 
 class TestNegativeNumberHandling:
-    def test_classify_negative_integer_as_value_when_negative_numbers_allowed(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "threshold": ValueOptionSpecification(
-                    name="threshold",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="threshold",
-                    long_names=("threshold",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_classify_negative_integer_as_value_when_negative_numbers_allowed(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="threshold")
+        spec = make_command(options={"threshold": opt})
         config = ParserConfiguration(allow_negative_numbers=True)
 
         result = parse_command_line_args(spec, ["--threshold", "-5"], config)
 
         assert result.options["threshold"] == "-5"
 
-    def test_classify_negative_float_as_value_when_negative_numbers_allowed(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "coefficient": ValueOptionSpecification(
-                    name="coefficient",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="coefficient",
-                    long_names=("coefficient",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_classify_negative_float_as_value_when_negative_numbers_allowed(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="coefficient")
+        spec = make_command(options={"coefficient": opt})
         config = ParserConfiguration(allow_negative_numbers=True)
 
         result = parse_command_line_args(spec, ["--coefficient", "-3.14"], config)
 
         assert result.options["coefficient"] == "-3.14"
 
-    def test_classify_negative_number_as_short_option_when_not_allowed(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "five": FlagOptionSpecification(
-                    name="five",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="5",
-                    long_names=(),
-                    short_names=("5",),
-                )
-            },
-        )
+    def test_classify_negative_number_as_short_option_when_not_allowed(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        opt = make_flag_opt(name="five", short_names=("5",))
+        spec = make_command(options={"five": opt})
         config = ParserConfiguration(allow_negative_numbers=False)
 
         result = parse_command_line_args(spec, ["-5"], config)
 
         assert result.options["five"] is True
 
-    def test_classify_negative_number_as_positional_when_no_positional_specs(self):
-        spec = CommandSpecification("test", positionals={"args": Arity.zero_or_more()})
+    def test_classify_negative_number_as_positional_when_no_positional_specs(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        spec = make_command(positionals={"args": Arity.zero_or_more()})
         config = ParserConfiguration(allow_negative_numbers=True)
 
         result = parse_command_line_args(spec, ["-5"], config)
@@ -310,27 +237,16 @@ class TestNegativeNumberHandling:
 
 
 class TestPosixStrictOrdering:
-    def test_classify_option_after_positional_as_positional_in_strict_mode(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=("output",),
-                    short_names=(),
-                ),
-            },
+    def test_classify_option_after_positional_as_positional_in_strict_mode(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt_verbose = make_flag_opt(name="verbose")
+        opt_output = make_value_opt(name="output")
+        spec = make_command(
+            options={"verbose": opt_verbose, "output": opt_output},
             positionals={"args": Arity.zero_or_more()},
         )
         config = ParserConfiguration(strict_posix_options=True)
@@ -342,19 +258,14 @@ class TestPosixStrictOrdering:
         assert result.positionals["args"] == ("file.txt", "--output", "result.txt")
         assert "output" not in result.options
 
-    def test_classify_option_before_positional_as_option_in_strict_mode(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                )
-            },
+    def test_classify_option_before_positional_as_option_in_strict_mode(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        opt = make_flag_opt(name="verbose")
+        spec = make_command(
+            options={"verbose": opt},
             positionals={"args": Arity.zero_or_more()},
         )
         config = ParserConfiguration(strict_posix_options=True)
@@ -364,27 +275,16 @@ class TestPosixStrictOrdering:
         assert result.options["verbose"] is True
         assert result.positionals["args"] == ("file.txt",)
 
-    def test_classify_mixed_options_positionals_correctly_in_strict_mode(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-                "config": ValueOptionSpecification(
-                    name="config",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="config",
-                    long_names=("config",),
-                    short_names=(),
-                ),
-            },
+    def test_classify_mixed_options_positionals_correctly_in_strict_mode(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt_verbose = make_flag_opt(name="verbose")
+        opt_config = make_value_opt(name="config")
+        spec = make_command(
+            options={"verbose": opt_verbose, "config": opt_config},
             positionals={"args": Arity.zero_or_more()},
         )
         config = ParserConfiguration(strict_posix_options=True)
@@ -397,27 +297,16 @@ class TestPosixStrictOrdering:
         assert result.options["config"] == "app.yaml"
         assert result.positionals["args"] == ("file.txt", "--extra")
 
-    def test_classify_options_and_positionals_freely_without_strict_mode(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=("output",),
-                    short_names=(),
-                ),
-            },
+    def test_classify_options_and_positionals_freely_without_strict_mode(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt_verbose = make_flag_opt(name="verbose")
+        opt_output = make_value_opt(name="output")
+        spec = make_command(
+            options={"verbose": opt_verbose, "output": opt_output},
             positionals={"args": Arity.zero_or_more()},
         )
         config = ParserConfiguration(strict_posix_options=False)
@@ -432,40 +321,42 @@ class TestPosixStrictOrdering:
 
 
 class TestSubcommandDetection:
-    def test_classify_matching_subcommand_name_as_subcommand(self):
-        subcommand_spec = CommandSpecification("build")
-        spec = CommandSpecification("test", subcommands={"build": subcommand_spec})
+    def test_classify_matching_subcommand_name_as_subcommand(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        subcmd = make_command("build")
+        spec = make_command(name="test", subcommands={"build": subcmd})
 
         result = parse_command_line_args(spec, ["build"])
 
         assert result.subcommand is not None
         assert result.subcommand.command == "build"
 
-    def test_classify_matching_subcommand_alias_as_subcommand(self):
-        subcommand_spec = CommandSpecification("build", aliases=["b"])
-        spec = CommandSpecification("test", subcommands={"build": subcommand_spec})
+    def test_classify_matching_subcommand_alias_as_subcommand(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        subcmd = make_command("build", aliases=("b",))
+        spec = make_command(name="test", subcommands={"build": subcmd})
 
         result = parse_command_line_args(spec, ["b"])
 
         assert result.subcommand is not None
         assert result.subcommand.command == "build"
 
-    def test_delegate_remaining_args_to_subcommand(self):
-        subcommand_spec = CommandSpecification(
+    def test_delegate_remaining_args_to_subcommand(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        opt = make_flag_opt(name="verbose")
+        subcmd = make_command(
             "build",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                )
-            },
+            options={"verbose": opt},
             positionals={"args": Arity.zero_or_more()},
         )
-        spec = CommandSpecification("test", subcommands={"build": subcommand_spec})
+        spec = make_command(name="test", subcommands={"build": subcmd})
 
         result = parse_command_line_args(spec, ["build", "--verbose", "file.txt"])
 
@@ -474,11 +365,14 @@ class TestSubcommandDetection:
         assert result.subcommand.options["verbose"] is True
         assert result.subcommand.positionals["args"] == ("file.txt",)
 
-    def test_classify_non_matching_name_as_positional(self):
-        subcommand_spec = CommandSpecification("build")
-        spec = CommandSpecification(
-            "test",
-            subcommands={"build": subcommand_spec},
+    def test_classify_non_matching_name_as_positional(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        subcmd = make_command("build")
+        spec = make_command(
+            name="test",
+            subcommands={"build": subcmd},
             positionals={"args": Arity.zero_or_more()},
         )
 
@@ -558,7 +452,6 @@ class TestStrictPosixWithUngroupedPositionals:
                     name="verbose",
                     arity=Arity.none(),
                     greedy=False,
-                    preferred_name="verbose",
                     long_names=("verbose",),
                     short_names=(),
                 )

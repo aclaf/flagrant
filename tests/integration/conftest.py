@@ -1,12 +1,18 @@
+from typing import TYPE_CHECKING
+
 import pytest
 
 from flagrant.specification import (
     Arity,
-    CommandSpecification,
-    FlagOptionSpecification,
-    ValueOptionSpecification,
 )
 from flagrant.specification.enums import ValueAccumulationMode
+
+if TYPE_CHECKING:
+    from flagrant.specification import (
+        CommandSpecificationFactory,
+        FlagOptionSpecificationFactory,
+        ValueOptionSpecificationFactory,
+    )
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
@@ -15,76 +21,33 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
 
 @pytest.fixture
-def git_like_spec():
+def git_like_spec(
+    make_command: "CommandSpecificationFactory",
+    make_flag_opt: "FlagOptionSpecificationFactory",
+    make_value_opt: "ValueOptionSpecificationFactory",
+):
     """Git-like command specification with accurate options based on actual git CLI."""
-    return CommandSpecification(
+    return make_command(
         name="git",
         options={
-            "version": FlagOptionSpecification(
-                name="version",
-                arity=Arity.none(),
-                greedy=False,
-                preferred_name="version",
-                long_names=("version",),
-                short_names=(),
-            ),
+            "version": make_flag_opt(name="version"),
         },
         subcommands={
-            "commit": CommandSpecification(
+            "commit": make_command(
                 name="commit",
                 options={
-                    "message": ValueOptionSpecification(
-                        name="message",
-                        arity=Arity.exactly_one(),
-                        greedy=False,
-                        preferred_name="message",
-                        long_names=("message",),
-                        short_names=("m",),
-                    ),
-                    "all": FlagOptionSpecification(
-                        name="all",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="all",
-                        long_names=("all",),
-                        short_names=("a",),
-                    ),
-                    "verbose": FlagOptionSpecification(
-                        name="verbose",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="verbose",
-                        long_names=("verbose",),
-                        short_names=("v",),
-                    ),
-                    "amend": FlagOptionSpecification(
-                        name="amend",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="amend",
-                        long_names=("amend",),
-                        short_names=(),
-                    ),
+                    "message": make_value_opt(name="message", short_names=("m",)),
+                    "all": make_flag_opt(name="all", short_names=("a",)),
+                    "verbose": make_flag_opt(name="verbose", short_names=("v",)),
+                    "amend": make_flag_opt(name="amend"),
                 },
             ),
-            "push": CommandSpecification(
+            "push": make_command(
                 name="push",
                 options={
-                    "force": FlagOptionSpecification(
-                        name="force",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="force",
-                        long_names=("force",),
-                        short_names=("f",),
-                    ),
-                    "set-upstream": FlagOptionSpecification(
-                        name="set-upstream",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="set-upstream",
-                        long_names=("set-upstream",),
-                        short_names=("u",),
+                    "force": make_flag_opt(name="force", short_names=("f",)),
+                    "set-upstream": make_flag_opt(
+                        name="set-upstream", short_names=("u",)
                     ),
                 },
                 positionals={
@@ -92,54 +55,19 @@ def git_like_spec():
                     "branch": Arity.at_most_one(),
                 },
             ),
-            "log": CommandSpecification(
+            "log": make_command(
                 name="log",
                 options={
-                    "oneline": FlagOptionSpecification(
-                        name="oneline",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="oneline",
-                        long_names=("oneline",),
-                        short_names=(),
-                    ),
-                    "graph": FlagOptionSpecification(
-                        name="graph",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="graph",
-                        long_names=("graph",),
-                        short_names=(),
-                    ),
-                    "max-count": ValueOptionSpecification(
-                        name="max-count",
-                        arity=Arity.exactly_one(),
-                        greedy=False,
-                        preferred_name="max-count",
-                        long_names=("max-count",),
-                        short_names=("n",),
-                    ),
+                    "oneline": make_flag_opt(name="oneline"),
+                    "graph": make_flag_opt(name="graph"),
+                    "max-count": make_value_opt(name="max-count", short_names=("n",)),
                 },
             ),
-            "add": CommandSpecification(
+            "add": make_command(
                 name="add",
                 options={
-                    "all": FlagOptionSpecification(
-                        name="all",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="all",
-                        long_names=("all",),
-                        short_names=("A",),
-                    ),
-                    "patch": FlagOptionSpecification(
-                        name="patch",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="patch",
-                        long_names=("patch",),
-                        short_names=("p",),
-                    ),
+                    "all": make_flag_opt(name="all", short_names=("A",)),
+                    "patch": make_flag_opt(name="patch", short_names=("p",)),
                 },
                 positionals={
                     "paths": Arity.zero_or_more(),
@@ -150,61 +78,31 @@ def git_like_spec():
 
 
 @pytest.fixture
-def docker_like_spec():
+def docker_like_spec(
+    make_command: "CommandSpecificationFactory",
+    make_flag_opt: "FlagOptionSpecificationFactory",
+    make_value_opt: "ValueOptionSpecificationFactory",
+):
     """Docker-like command specification based on actual docker CLI."""
-    return CommandSpecification(
+    return make_command(
         name="docker",
         subcommands={
-            "run": CommandSpecification(
+            "run": make_command(
                 name="run",
                 options={
-                    "interactive": FlagOptionSpecification(
-                        name="interactive",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="interactive",
-                        long_names=("interactive",),
-                        short_names=("i",),
+                    "interactive": make_flag_opt(
+                        name="interactive", short_names=("i",)
                     ),
-                    "tty": FlagOptionSpecification(
-                        name="tty",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="tty",
-                        long_names=("tty",),
-                        short_names=("t",),
-                    ),
-                    "detach": FlagOptionSpecification(
-                        name="detach",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="detach",
-                        long_names=("detach",),
-                        short_names=("d",),
-                    ),
-                    "name": ValueOptionSpecification(
-                        name="name",
-                        arity=Arity.exactly_one(),
-                        greedy=False,
-                        preferred_name="name",
-                        long_names=("name",),
-                        short_names=(),
-                    ),
-                    "env": ValueOptionSpecification(
+                    "tty": make_flag_opt(name="tty", short_names=("t",)),
+                    "detach": make_flag_opt(name="detach", short_names=("d",)),
+                    "name": make_value_opt(name="name"),
+                    "env": make_value_opt(
                         name="env",
-                        arity=Arity.exactly_one(),
-                        greedy=False,
-                        preferred_name="env",
-                        long_names=("env",),
                         short_names=("e",),
                         accumulation_mode=ValueAccumulationMode.APPEND,
                     ),
-                    "volume": ValueOptionSpecification(
+                    "volume": make_value_opt(
                         name="volume",
-                        arity=Arity.exactly_one(),
-                        greedy=False,
-                        preferred_name="volume",
-                        long_names=("volume",),
                         short_names=("v",),
                         accumulation_mode=ValueAccumulationMode.APPEND,
                     ),
@@ -214,54 +112,26 @@ def docker_like_spec():
                     "command": Arity.zero_or_more(),
                 },
             ),
-            "compose": CommandSpecification(
+            "compose": make_command(
                 name="compose",
                 subcommands={
-                    "up": CommandSpecification(
+                    "up": make_command(
                         name="up",
                         options={
-                            "detach": FlagOptionSpecification(
-                                name="detach",
-                                arity=Arity.none(),
-                                greedy=False,
-                                preferred_name="detach",
-                                long_names=("detach",),
-                                short_names=("d",),
-                            ),
-                            "build": FlagOptionSpecification(
-                                name="build",
-                                arity=Arity.none(),
-                                greedy=False,
-                                preferred_name="build",
-                                long_names=("build",),
-                                short_names=(),
-                            ),
+                            "detach": make_flag_opt(name="detach", short_names=("d",)),
+                            "build": make_flag_opt(name="build"),
                         },
                     ),
                 },
             ),
-            "image": CommandSpecification(
+            "image": make_command(
                 name="image",
                 subcommands={
-                    "ls": CommandSpecification(
+                    "ls": make_command(
                         name="ls",
                         options={
-                            "filter": ValueOptionSpecification(
-                                name="filter",
-                                arity=Arity.exactly_one(),
-                                greedy=False,
-                                preferred_name="filter",
-                                long_names=("filter",),
-                                short_names=("f",),
-                            ),
-                            "all": FlagOptionSpecification(
-                                name="all",
-                                arity=Arity.none(),
-                                greedy=False,
-                                preferred_name="all",
-                                long_names=("all",),
-                                short_names=("a",),
-                            ),
+                            "filter": make_value_opt(name="filter", short_names=("f",)),
+                            "all": make_flag_opt(name="all", short_names=("a",)),
                         },
                     ),
                 },
@@ -271,60 +141,26 @@ def docker_like_spec():
 
 
 @pytest.fixture
-def grep_like_spec():
+def grep_like_spec(
+    make_command: "CommandSpecificationFactory",
+    make_flag_opt: "FlagOptionSpecificationFactory",
+    make_value_opt: "ValueOptionSpecificationFactory",
+):
     """Grep-like command specification based on actual grep CLI."""
-    return CommandSpecification(
+    return make_command(
         name="grep",
         options={
-            "recursive": FlagOptionSpecification(
-                name="recursive",
-                arity=Arity.none(),
-                greedy=False,
-                preferred_name="recursive",
-                long_names=("recursive",),
-                short_names=("r",),
-            ),
-            "ignore-case": FlagOptionSpecification(
-                name="ignore-case",
-                arity=Arity.none(),
-                greedy=False,
-                preferred_name="ignore-case",
-                long_names=("ignore-case",),
-                short_names=("i",),
-            ),
-            "line-number": FlagOptionSpecification(
-                name="line-number",
-                arity=Arity.none(),
-                greedy=False,
-                preferred_name="line-number",
-                long_names=("line-number",),
-                short_names=("n",),
-            ),
-            "count": FlagOptionSpecification(
-                name="count",
-                arity=Arity.none(),
-                greedy=False,
-                preferred_name="count",
-                long_names=("count",),
-                short_names=("c",),
-            ),
-            "exclude": ValueOptionSpecification(
+            "recursive": make_flag_opt(name="recursive", short_names=("r",)),
+            "ignore-case": make_flag_opt(name="ignore-case", short_names=("i",)),
+            "line-number": make_flag_opt(name="line-number", short_names=("n",)),
+            "count": make_flag_opt(name="count", short_names=("c",)),
+            "exclude": make_value_opt(
                 name="exclude",
                 arity=Arity.at_least_one(),
-                greedy=False,
-                preferred_name="exclude",
-                long_names=("exclude",),
-                short_names=(),
                 accumulation_mode=ValueAccumulationMode.EXTEND,
             ),
-            "include": ValueOptionSpecification(
-                name="include",
-                arity=Arity.exactly_one(),
-                greedy=False,
-                preferred_name="include",
-                long_names=("include",),
-                short_names=(),
-                accumulation_mode=ValueAccumulationMode.APPEND,
+            "include": make_value_opt(
+                name="include", accumulation_mode=ValueAccumulationMode.APPEND
             ),
         },
         positionals={
@@ -335,59 +171,21 @@ def grep_like_spec():
 
 
 @pytest.fixture
-def tar_like_spec():
+def tar_like_spec(
+    make_command: "CommandSpecificationFactory",
+    make_flag_opt: "FlagOptionSpecificationFactory",
+    make_value_opt: "ValueOptionSpecificationFactory",
+):
     """Tar-like command specification with accurate options based on actual tar CLI."""
-    return CommandSpecification(
+    return make_command(
         name="tar",
         options={
-            "create": FlagOptionSpecification(
-                name="create",
-                arity=Arity.none(),
-                greedy=False,
-                preferred_name="create",
-                long_names=("create",),
-                short_names=("c",),
-            ),
-            "extract": FlagOptionSpecification(
-                name="extract",
-                arity=Arity.none(),
-                greedy=False,
-                preferred_name="extract",
-                long_names=("extract",),
-                short_names=("x",),
-            ),
-            "gzip": FlagOptionSpecification(
-                name="gzip",
-                arity=Arity.none(),
-                greedy=False,
-                preferred_name="gzip",
-                long_names=("gzip",),
-                short_names=("z",),
-            ),
-            "file": ValueOptionSpecification(
-                name="file",
-                arity=Arity.exactly_one(),
-                greedy=False,
-                preferred_name="file",
-                long_names=("file",),
-                short_names=("f",),
-            ),
-            "verbose": FlagOptionSpecification(
-                name="verbose",
-                arity=Arity.none(),
-                greedy=False,
-                preferred_name="verbose",
-                long_names=("verbose",),
-                short_names=("v",),
-            ),
-            "list": FlagOptionSpecification(
-                name="list",
-                arity=Arity.none(),
-                greedy=False,
-                preferred_name="list",
-                long_names=("list",),
-                short_names=("t",),
-            ),
+            "create": make_flag_opt(name="create", short_names=("c",)),
+            "extract": make_flag_opt(name="extract", short_names=("x",)),
+            "gzip": make_flag_opt(name="gzip", short_names=("z",)),
+            "file": make_value_opt(name="file", short_names=("f",)),
+            "verbose": make_flag_opt(name="verbose", short_names=("v",)),
+            "list": make_flag_opt(name="list", short_names=("t",)),
         },
         positionals={
             "files": Arity.zero_or_more(),
@@ -396,42 +194,20 @@ def tar_like_spec():
 
 
 @pytest.fixture
-def find_like_spec():
+def find_like_spec(
+    make_command: "CommandSpecificationFactory",
+    make_value_opt: "ValueOptionSpecificationFactory",
+):
     """Find-like command specification based on actual find CLI."""
-    return CommandSpecification(
+    return make_command(
         name="find",
         options={
-            "name": ValueOptionSpecification(
-                name="name",
-                arity=Arity.exactly_one(),
-                greedy=False,
-                preferred_name="name",
-                long_names=("name",),
-                short_names=(),
-            ),
-            "type": ValueOptionSpecification(
-                name="type",
-                arity=Arity.exactly_one(),
-                greedy=False,
-                preferred_name="type",
-                long_names=("type",),
-                short_names=(),
-            ),
-            "maxdepth": ValueOptionSpecification(
-                name="maxdepth",
-                arity=Arity.exactly_one(),
-                greedy=False,
-                preferred_name="maxdepth",
-                long_names=("maxdepth",),
-                short_names=(),
-            ),
-            "exec": ValueOptionSpecification(
+            "name": make_value_opt(name="name"),
+            "type": make_value_opt(name="type"),
+            "maxdepth": make_value_opt(name="maxdepth"),
+            "exec": make_value_opt(
                 name="exec",
                 arity=Arity.at_least_one(),
-                greedy=False,
-                preferred_name="exec",
-                long_names=("exec",),
-                short_names=(),
                 accumulation_mode=ValueAccumulationMode.EXTEND,
             ),
         },
@@ -442,209 +218,78 @@ def find_like_spec():
 
 
 @pytest.fixture
-def kubectl_like_spec():
+def kubectl_like_spec(
+    make_command: "CommandSpecificationFactory",
+    make_flag_opt: "FlagOptionSpecificationFactory",
+    make_value_opt: "ValueOptionSpecificationFactory",
+):
     """Kubectl-like command specification based on actual kubectl CLI."""
-    return CommandSpecification(
+    return make_command(
         name="kubectl",
         options={
-            "namespace": ValueOptionSpecification(
-                name="namespace",
-                arity=Arity.exactly_one(),
-                greedy=False,
-                preferred_name="namespace",
-                long_names=("namespace",),
-                short_names=("n",),
-            ),
-            "kubeconfig": ValueOptionSpecification(
-                name="kubeconfig",
-                arity=Arity.exactly_one(),
-                greedy=False,
-                preferred_name="kubeconfig",
-                long_names=("kubeconfig",),
-                short_names=(),
-            ),
-            "context": ValueOptionSpecification(
-                name="context",
-                arity=Arity.exactly_one(),
-                greedy=False,
-                preferred_name="context",
-                long_names=("context",),
-                short_names=(),
-            ),
+            "namespace": make_value_opt(name="namespace", short_names=("n",)),
+            "kubeconfig": make_value_opt(name="kubeconfig"),
+            "context": make_value_opt(name="context"),
         },
         subcommands={
-            "get": CommandSpecification(
+            "get": make_command(
                 name="get",
                 options={
-                    "output": ValueOptionSpecification(
-                        name="output",
-                        arity=Arity.exactly_one(),
-                        greedy=False,
-                        preferred_name="output",
-                        long_names=("output",),
-                        short_names=("o",),
+                    "output": make_value_opt(name="output", short_names=("o",)),
+                    "all-namespaces": make_flag_opt(
+                        name="all-namespaces", short_names=("A",)
                     ),
-                    "all-namespaces": FlagOptionSpecification(
-                        name="all-namespaces",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="all-namespaces",
-                        long_names=("all-namespaces",),
-                        short_names=("A",),
-                    ),
-                    "selector": ValueOptionSpecification(
-                        name="selector",
-                        arity=Arity.exactly_one(),
-                        greedy=False,
-                        preferred_name="selector",
-                        long_names=("selector",),
-                        short_names=("l",),
-                    ),
-                    "watch": FlagOptionSpecification(
-                        name="watch",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="watch",
-                        long_names=("watch",),
-                        short_names=("w",),
-                    ),
+                    "selector": make_value_opt(name="selector", short_names=("l",)),
+                    "watch": make_flag_opt(name="watch", short_names=("w",)),
                 },
                 positionals={
                     "resource": Arity.exactly_one(),
                     "name": Arity.at_most_one(),
                 },
             ),
-            "apply": CommandSpecification(
+            "apply": make_command(
                 name="apply",
                 options={
-                    "filename": ValueOptionSpecification(
+                    "filename": make_value_opt(
                         name="filename",
-                        arity=Arity.exactly_one(),
-                        greedy=False,
-                        preferred_name="filename",
-                        long_names=("filename",),
                         short_names=("f",),
                         accumulation_mode=ValueAccumulationMode.APPEND,
                     ),
-                    "recursive": FlagOptionSpecification(
-                        name="recursive",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="recursive",
-                        long_names=("recursive",),
-                        short_names=("R",),
-                    ),
-                    "force": FlagOptionSpecification(
-                        name="force",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="force",
-                        long_names=("force",),
-                        short_names=(),
-                    ),
-                    "dry-run": ValueOptionSpecification(
-                        name="dry-run",
-                        arity=Arity.exactly_one(),
-                        greedy=False,
-                        preferred_name="dry-run",
-                        long_names=("dry-run",),
-                        short_names=(),
-                    ),
+                    "recursive": make_flag_opt(name="recursive", short_names=("R",)),
+                    "force": make_flag_opt(name="force"),
+                    "dry-run": make_value_opt(name="dry-run"),
                 },
             ),
-            "delete": CommandSpecification(
+            "delete": make_command(
                 name="delete",
                 options={
-                    "filename": ValueOptionSpecification(
-                        name="filename",
-                        arity=Arity.exactly_one(),
-                        greedy=False,
-                        preferred_name="filename",
-                        long_names=("filename",),
-                        short_names=("f",),
-                    ),
-                    "force": FlagOptionSpecification(
-                        name="force",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="force",
-                        long_names=("force",),
-                        short_names=(),
-                    ),
-                    "grace-period": ValueOptionSpecification(
-                        name="grace-period",
-                        arity=Arity.exactly_one(),
-                        greedy=False,
-                        preferred_name="grace-period",
-                        long_names=("grace-period",),
-                        short_names=(),
-                    ),
-                    "all": FlagOptionSpecification(
-                        name="all",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="all",
-                        long_names=("all",),
-                        short_names=(),
-                    ),
+                    "filename": make_value_opt(name="filename", short_names=("f",)),
+                    "force": make_flag_opt(name="force"),
+                    "grace-period": make_value_opt(name="grace-period"),
+                    "all": make_flag_opt(name="all"),
                 },
                 positionals={
                     "resource": Arity.exactly_one(),
                     "name": Arity.zero_or_more(),
                 },
             ),
-            "describe": CommandSpecification(
+            "describe": make_command(
                 name="describe",
                 options={
-                    "filename": ValueOptionSpecification(
-                        name="filename",
-                        arity=Arity.exactly_one(),
-                        greedy=False,
-                        preferred_name="filename",
-                        long_names=("filename",),
-                        short_names=("f",),
-                    ),
-                    "selector": ValueOptionSpecification(
-                        name="selector",
-                        arity=Arity.exactly_one(),
-                        greedy=False,
-                        preferred_name="selector",
-                        long_names=("selector",),
-                        short_names=("l",),
-                    ),
+                    "filename": make_value_opt(name="filename", short_names=("f",)),
+                    "selector": make_value_opt(name="selector", short_names=("l",)),
                 },
                 positionals={
                     "resource": Arity.exactly_one(),
                     "name": Arity.at_most_one(),
                 },
             ),
-            "exec": CommandSpecification(
+            "exec": make_command(
                 name="exec",
                 options={
-                    "stdin": FlagOptionSpecification(
-                        name="stdin",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="stdin",
-                        long_names=("stdin",),
-                        short_names=("i",),
-                    ),
-                    "tty": FlagOptionSpecification(
-                        name="tty",
-                        arity=Arity.none(),
-                        greedy=False,
-                        preferred_name="tty",
-                        long_names=("tty",),
-                        short_names=("t",),
-                    ),
-                    "container": ValueOptionSpecification(
-                        name="container",
-                        arity=Arity.exactly_one(),
-                        greedy=False,
-                        preferred_name="container",
-                        long_names=("container",),
-                        short_names=("c",),
-                    ),
+                    "stdin": make_flag_opt(name="stdin", short_names=("i",)),
+                    "tty": make_flag_opt(name="tty", short_names=("t",)),
+                    "container": make_value_opt(name="container", short_names=("c",)),
                 },
                 positionals={
                     "pod": Arity.exactly_one(),

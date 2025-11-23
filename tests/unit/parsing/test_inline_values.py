@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 import pytest
 
 from flagrant.configuration import ParserConfiguration
@@ -14,98 +16,70 @@ from flagrant.specification import (
     ValueOptionSpecification,
 )
 
+if TYPE_CHECKING:
+    from flagrant.specification import (
+        CommandSpecificationFactory,
+        FlagOptionSpecificationFactory,
+        ValueOptionSpecificationFactory,
+    )
+
 
 class TestLongOptionEqualsBasic:
-    def test_long_option_with_equals_assigns_single_value(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=("output",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_long_option_with_equals_assigns_single_value(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="output")
+        spec = make_command(options={"output": opt})
 
         result = parse_command_line_args(spec, ["--output=file.txt"])
 
         assert result.options["output"] == "file.txt"
 
-    def test_long_option_equals_splits_on_first_equals_only(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "config": ValueOptionSpecification(
-                    name="config",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="config",
-                    long_names=("config",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_long_option_equals_splits_on_first_equals_only(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="config")
+        spec = make_command(options={"config": opt})
 
         result = parse_command_line_args(spec, ["--config=key=value"])
 
         assert result.options["config"] == "key=value"
 
-    def test_long_option_equals_with_multiple_equals_preserves_all_after_first(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "equation": ValueOptionSpecification(
-                    name="equation",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="equation",
-                    long_names=("equation",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_long_option_equals_with_multiple_equals_preserves_all_after_first(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="equation")
+        spec = make_command(options={"equation": opt})
 
         result = parse_command_line_args(spec, ["--equation=x=y+z"])
 
         assert result.options["equation"] == "x=y+z"
 
-    def test_long_option_equals_with_empty_value_assigns_empty_string(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=("output",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_long_option_equals_with_empty_value_assigns_empty_string(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="output")
+        spec = make_command(options={"output": opt})
 
         result = parse_command_line_args(spec, ["--output="])
 
         assert result.options["output"] == ""
 
-    def test_long_option_equals_satisfies_arity_of_one(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "value": ValueOptionSpecification(
-                    name="value",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="value",
-                    long_names=("value",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_long_option_equals_satisfies_arity_of_one(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="value")
+        spec = make_command(options={"value": opt})
 
         result = parse_command_line_args(spec, ["--value=data"])
 
@@ -113,20 +87,13 @@ class TestLongOptionEqualsBasic:
 
 
 class TestLongOptionEqualsArityValidation:
-    def test_long_option_equals_with_arity_two_raises_insufficient_values_error(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "coords": ValueOptionSpecification(
-                    name="coords",
-                    arity=Arity.exact(2),
-                    greedy=False,
-                    preferred_name="coords",
-                    long_names=("coords",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_long_option_equals_with_arity_two_raises_insufficient_values_error(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="coords", arity=Arity.exact(2))
+        spec = make_command(options={"coords": opt})
 
         with pytest.raises(OptionMissingValueError) as exc_info:
             _ = parse_command_line_args(spec, ["--coords=10"])
@@ -134,20 +101,13 @@ class TestLongOptionEqualsArityValidation:
         assert exc_info.value.option == "coords"
         assert exc_info.value.required == Arity.exact(2)
 
-    def test_long_option_equals_with_arity_zero_or_one_succeeds(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "optional": ValueOptionSpecification(
-                    name="optional",
-                    arity=Arity.at_most_one(),
-                    greedy=False,
-                    preferred_name="optional",
-                    long_names=("optional",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_long_option_equals_with_arity_zero_or_one_succeeds(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="optional", arity=Arity.at_most_one())
+        spec = make_command(options={"optional": opt})
 
         result = parse_command_line_args(spec, ["--optional=value"])
 
@@ -155,20 +115,11 @@ class TestLongOptionEqualsArityValidation:
 
     def test_long_option_equals_with_unbounded_arity_also_consumes_following_args(
         self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
     ):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "files": ValueOptionSpecification(
-                    name="files",
-                    arity=Arity.at_least_one(),
-                    greedy=False,
-                    preferred_name="files",
-                    long_names=("files",),
-                    short_names=(),
-                )
-            },
-        )
+        opt = make_value_opt(name="files", arity=Arity.at_least_one())
+        spec = make_command(options={"files": opt})
 
         result = parse_command_line_args(spec, ["--files=first.txt", "second.txt"])
 
@@ -176,58 +127,43 @@ class TestLongOptionEqualsArityValidation:
 
 
 class TestShortOptionEqualsBasic:
-    def test_short_option_with_equals_assigns_value(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="o",
-                    long_names=(),
-                    short_names=("o",),
-                )
-            },
+    def test_short_option_with_equals_assigns_value(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(
+            name="output", long_names=(), short_names=("o",)
         )
+        spec = make_command(options={"output": opt})
 
         result = parse_command_line_args(spec, ["-o=file.txt"])
 
         assert result.options["output"] == "file.txt"
 
-    def test_short_option_equals_splits_on_first_equals(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "config": ValueOptionSpecification(
-                    name="config",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="c",
-                    long_names=(),
-                    short_names=("c",),
-                )
-            },
+    def test_short_option_equals_splits_on_first_equals(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(
+            name="config", long_names=(), short_names=("c",)
         )
+        spec = make_command(options={"config": opt})
 
         result = parse_command_line_args(spec, ["-c=key=value"])
 
         assert result.options["config"] == "key=value"
 
-    def test_short_option_equals_with_empty_value_assigns_empty_string(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="o",
-                    long_names=(),
-                    short_names=("o",),
-                )
-            },
+    def test_short_option_equals_with_empty_value_assigns_empty_string(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(
+            name="output", long_names=(), short_names=("o",)
         )
+        spec = make_command(options={"output": opt})
 
         result = parse_command_line_args(spec, ["-o="])
 
@@ -235,58 +171,43 @@ class TestShortOptionEqualsBasic:
 
 
 class TestShortOptionConcatenatedBasic:
-    def test_short_option_concatenated_value_without_separator(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="o",
-                    long_names=(),
-                    short_names=("o",),
-                )
-            },
+    def test_short_option_concatenated_value_without_separator(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(
+            name="output", long_names=(), short_names=("o",)
         )
+        spec = make_command(options={"output": opt})
 
         result = parse_command_line_args(spec, ["-ofile.txt"])
 
         assert result.options["output"] == "file.txt"
 
-    def test_short_option_concatenated_value_is_remainder_after_option_char(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "name": ValueOptionSpecification(
-                    name="name",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="n",
-                    long_names=(),
-                    short_names=("n",),
-                )
-            },
+    def test_short_option_concatenated_value_is_remainder_after_option_char(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(
+            name="name", long_names=(), short_names=("n",)
         )
+        spec = make_command(options={"name": opt})
 
         result = parse_command_line_args(spec, ["-nvalue123"])
 
         assert result.options["name"] == "value123"
 
-    def test_short_option_concatenated_with_single_char_value(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "mode": ValueOptionSpecification(
-                    name="mode",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="m",
-                    long_names=(),
-                    short_names=("m",),
-                )
-            },
+    def test_short_option_concatenated_with_single_char_value(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(
+            name="mode", long_names=(), short_names=("m",)
         )
+        spec = make_command(options={"mode": opt})
 
         result = parse_command_line_args(spec, ["-ma"])
 
@@ -294,35 +215,23 @@ class TestShortOptionConcatenatedBasic:
 
 
 class TestClusteringWithInlineValues:
-    def test_clustered_options_with_equals_assigns_to_last_option(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="v",
-                    long_names=(),
-                    short_names=("v",),
-                ),
-                "quiet": FlagOptionSpecification(
-                    name="quiet",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="q",
-                    long_names=(),
-                    short_names=("q",),
-                ),
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="o",
-                    long_names=(),
-                    short_names=("o",),
-                ),
-            },
+    def test_clustered_options_with_equals_assigns_to_last_option(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        verbose = make_flag_opt(
+            name="verbose", long_names=(), short_names=("v",)
+        )
+        quiet = make_flag_opt(
+            name="quiet", long_names=(), short_names=("q",)
+        )
+        output = make_value_opt(
+            name="output", long_names=(), short_names=("o",)
+        )
+        spec = make_command(
+            options={"verbose": verbose, "quiet": quiet, "output": output}
         )
 
         result = parse_command_line_args(spec, ["-vqo=file.txt"])
@@ -331,36 +240,22 @@ class TestClusteringWithInlineValues:
         assert result.options["quiet"] is True
         assert result.options["output"] == "file.txt"
 
-    def test_clustered_options_with_concatenated_value_to_last_option(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "all": FlagOptionSpecification(
-                    name="all",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="a",
-                    long_names=(),
-                    short_names=("a",),
-                ),
-                "build": FlagOptionSpecification(
-                    name="build",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="b",
-                    long_names=(),
-                    short_names=("b",),
-                ),
-                "config": ValueOptionSpecification(
-                    name="config",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="c",
-                    long_names=(),
-                    short_names=("c",),
-                ),
-            },
+    def test_clustered_options_with_concatenated_value_to_last_option(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        all_opt = make_flag_opt(
+            name="all", long_names=(), short_names=("a",)
         )
+        build = make_flag_opt(
+            name="build", long_names=(), short_names=("b",)
+        )
+        config = make_value_opt(
+            name="config", long_names=(), short_names=("c",)
+        )
+        spec = make_command(options={"all": all_opt, "build": build, "config": config})
 
         result = parse_command_line_args(spec, ["-abcvalue"])
 
@@ -368,36 +263,22 @@ class TestClusteringWithInlineValues:
         assert result.options["build"] is True
         assert result.options["config"] == "value"
 
-    def test_clustered_equals_assigns_value_even_if_equals_char_defined_as_option(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "all": FlagOptionSpecification(
-                    name="all",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="a",
-                    long_names=(),
-                    short_names=("a",),
-                ),
-                "build": ValueOptionSpecification(
-                    name="build",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="b",
-                    long_names=(),
-                    short_names=("b",),
-                ),
-                "config": FlagOptionSpecification(
-                    name="config",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="c",
-                    long_names=(),
-                    short_names=("c",),
-                ),
-            },
+    def test_clustered_equals_assigns_value_even_if_equals_char_defined_as_option(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        all_opt = make_flag_opt(
+            name="all", long_names=(), short_names=("a",)
         )
+        build = make_value_opt(
+            name="build", long_names=(), short_names=("b",)
+        )
+        config = make_flag_opt(
+            name="config", long_names=(), short_names=("c",)
+        )
+        spec = make_command(options={"all": all_opt, "build": build, "config": config})
 
         result = parse_command_line_args(spec, ["-ab=c"])
 
@@ -406,20 +287,13 @@ class TestClusteringWithInlineValues:
 
 
 class TestFlagInlineValueProhibition:
-    def test_long_flag_with_equals_raises_value_not_allowed_error(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_long_flag_with_equals_raises_value_not_allowed_error(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        opt = make_flag_opt(name="verbose")
+        spec = make_command(options={"verbose": opt})
 
         with pytest.raises(OptionValueNotAllowedError) as exc_info:
             _ = parse_command_line_args(spec, ["--verbose=true"])
@@ -427,20 +301,15 @@ class TestFlagInlineValueProhibition:
         assert exc_info.value.option == "verbose"
         assert exc_info.value.received == "true"
 
-    def test_short_flag_with_equals_raises_value_not_allowed_error(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="v",
-                    long_names=(),
-                    short_names=("v",),
-                )
-            },
+    def test_short_flag_with_equals_raises_value_not_allowed_error(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        opt = make_flag_opt(
+            name="verbose", long_names=(), short_names=("v",)
         )
+        spec = make_command(options={"verbose": opt})
 
         with pytest.raises(OptionValueNotAllowedError) as exc_info:
             _ = parse_command_line_args(spec, ["-v=true"])
@@ -448,21 +317,13 @@ class TestFlagInlineValueProhibition:
         assert exc_info.value.option == "v"
         assert exc_info.value.received == "true"
 
-    def test_negative_flag_with_equals_raises_value_not_allowed_error(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "color": FlagOptionSpecification(
-                    name="color",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="color",
-                    long_names=("color",),
-                    short_names=(),
-                    negative_prefixes=("no",),
-                )
-            },
-        )
+    def test_negative_flag_with_equals_raises_value_not_allowed_error(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        opt = make_flag_opt(name="color", negative_prefixes=("no",))
+        spec = make_command(options={"color": opt})
 
         with pytest.raises(OptionValueNotAllowedError) as exc_info:
             _ = parse_command_line_args(spec, ["--no-color=false"])
@@ -480,7 +341,6 @@ class TestSpecialCharactersInInlineValues:
                     name="config",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="config",
                     long_names=("config",),
                     short_names=(),
                 ),
@@ -500,7 +360,6 @@ class TestSpecialCharactersInInlineValues:
                     name="pattern",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="pattern",
                     long_names=("pattern",),
                     short_names=(),
                 ),
@@ -520,7 +379,6 @@ class TestSpecialCharactersInInlineValues:
                     name="file",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="file",
                     long_names=("file",),
                     short_names=(),
                 ),
@@ -540,7 +398,6 @@ class TestSpecialCharactersInInlineValues:
                     name="output",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="output",
                     long_names=("output",),
                     short_names=(),
                 ),
@@ -560,7 +417,6 @@ class TestSpecialCharactersInInlineValues:
                     name="message",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="message",
                     long_names=("message",),
                     short_names=(),
                 ),
@@ -580,7 +436,6 @@ class TestSpecialCharactersInInlineValues:
                     name="option",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="option",
                     long_names=("option",),
                     short_names=(),
                 ),
@@ -602,7 +457,6 @@ class TestSpecialCharactersInInlineValues:
                     name="pattern",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="pattern",
                     long_names=("pattern",),
                     short_names=(),
                 ),
@@ -622,7 +476,6 @@ class TestSpecialCharactersInInlineValues:
                     name="url",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="url",
                     long_names=("url",),
                     short_names=(),
                 ),
@@ -644,7 +497,6 @@ class TestSpecialCharactersInInlineValues:
                     name="message",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="message",
                     long_names=("message",),
                     short_names=(),
                 ),
@@ -666,7 +518,6 @@ class TestInlineValuesWithDifferentArities:
                     name="files",
                     arity=Arity.at_least_one(),
                     greedy=False,
-                    preferred_name="files",
                     long_names=("files",),
                     short_names=(),
                 ),
@@ -688,7 +539,6 @@ class TestInlineValuesWithDifferentArities:
                     name="coords",
                     arity=Arity.exact(3),
                     greedy=False,
-                    preferred_name="coords",
                     long_names=("coords",),
                     short_names=(),
                 ),
@@ -708,7 +558,6 @@ class TestInlineValuesWithDifferentArities:
                     name="coords",
                     arity=Arity.exact(3),
                     greedy=False,
-                    preferred_name="coords",
                     long_names=("coords",),
                     short_names=(),
                 ),
@@ -730,7 +579,6 @@ class TestInlineValuesWithDifferentArities:
                     name="level",
                     arity=Arity.at_most_one(),
                     greedy=False,
-                    preferred_name="level",
                     long_names=("level",),
                     short_names=(),
                 ),
@@ -750,7 +598,6 @@ class TestInlineValuesWithDifferentArities:
                     name="items",
                     arity=Arity(2, 4),
                     greedy=False,
-                    preferred_name="items",
                     long_names=("items",),
                     short_names=(),
                 ),
@@ -770,7 +617,6 @@ class TestInlineValuesWithDifferentArities:
                     name="output",
                     arity=Arity.at_least_one(),
                     greedy=False,
-                    preferred_name="output",
                     long_names=("output",),
                     short_names=(),
                 ),
@@ -794,7 +640,6 @@ class TestErrorCasesAndValidation:
                     name="verbose",
                     arity=Arity.none(),
                     greedy=False,
-                    preferred_name="verbose",
                     long_names=("verbose",),
                     short_names=(),
                 ),
@@ -823,7 +668,6 @@ class TestErrorCasesAndValidation:
                     name="verbose",
                     arity=Arity.none(),
                     greedy=False,
-                    preferred_name="verbose",
                     long_names=("verbose",),
                     short_names=(),
                 ),
@@ -844,7 +688,6 @@ class TestErrorCasesAndValidation:
                     name="output",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="output",
                     long_names=("output",),
                     short_names=(),
                 ),
@@ -865,7 +708,6 @@ class TestErrorCasesAndValidation:
                     name="point",
                     arity=Arity.exact(2),
                     greedy=False,
-                    preferred_name="point",
                     long_names=("point",),
                     short_names=(),
                 ),
@@ -886,7 +728,6 @@ class TestErrorCasesAndValidation:
                     name="output",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="output",
                     long_names=("output",),
                     short_names=(),
                 ),
@@ -894,7 +735,6 @@ class TestErrorCasesAndValidation:
                     name="outputdir",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="outputdir",
                     long_names=("outputdir",),
                     short_names=(),
                 ),
@@ -915,7 +755,6 @@ class TestSecurityConsiderations:
                     name="file",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="file",
                     long_names=("file",),
                     short_names=(),
                 ),
@@ -935,7 +774,6 @@ class TestSecurityConsiderations:
                     name="data",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="data",
                     long_names=("data",),
                     short_names=(),
                 ),
@@ -955,7 +793,6 @@ class TestSecurityConsiderations:
                     name="command",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="command",
                     long_names=("command",),
                     short_names=(),
                 ),
@@ -977,7 +814,6 @@ class TestSecurityConsiderations:
                     name="name",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="name",
                     long_names=("name",),
                     short_names=(),
                 ),
@@ -997,7 +833,6 @@ class TestSecurityConsiderations:
                     name="data",
                     arity=Arity.exactly_one(),
                     greedy=False,
-                    preferred_name="data",
                     long_names=("data",),
                     short_names=(),
                 ),

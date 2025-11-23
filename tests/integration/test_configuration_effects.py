@@ -1,32 +1,32 @@
 """Integration tests for configuration effects on command parsing."""
 
+from typing import TYPE_CHECKING
+
 from flagrant.configuration import ParserConfiguration
 from flagrant.parser import parse_command_line_args
 from flagrant.specification import (
     Arity,
     CommandSpecification,
-    FlagOptionSpecification,
-    ValueOptionSpecification,
 )
+
+if TYPE_CHECKING:
+    from flagrant.specification import (
+        CommandSpecificationFactory,
+        FlagOptionSpecificationFactory,
+        ValueOptionSpecificationFactory,
+    )
 
 
 class TestStrictPosixMode:
-    def test_strict_posix_rejects_options_after_positionals(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=("v",),
-                ),
-            },
-            positionals={
-                "file": Arity.exactly_one(),
-            },
+    def test_strict_posix_rejects_options_after_positionals(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        verbose = make_flag_opt(name="verbose", short_names=("v",))
+        spec = make_command(
+            options={"verbose": verbose},
+            positionals={"file": Arity.exactly_one()},
         )
         config = ParserConfiguration(strict_posix_options=True)
 
@@ -36,22 +36,15 @@ class TestStrictPosixMode:
         assert result.extra_args == ()
         assert "verbose" not in result.options
 
-    def test_strict_posix_allows_options_before_positionals(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=("v",),
-                ),
-            },
-            positionals={
-                "file": Arity.exactly_one(),
-            },
+    def test_strict_posix_allows_options_before_positionals(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        verbose = make_flag_opt(name="verbose", short_names=("v",))
+        spec = make_command(
+            options={"verbose": verbose},
+            positionals={"file": Arity.exactly_one()},
         )
         config = ParserConfiguration(strict_posix_options=True)
 
@@ -60,13 +53,11 @@ class TestStrictPosixMode:
         assert result.options["verbose"] is True
         assert result.positionals["file"] == "file.txt"
 
-    def test_strict_posix_with_separator_allows_option_like_values(self):
-        spec = CommandSpecification(
-            "test",
-            positionals={
-                "args": Arity.zero_or_more(),
-            },
-        )
+    def test_strict_posix_with_separator_allows_option_like_values(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        spec = make_command(positionals={"args": Arity.zero_or_more()})
         config = ParserConfiguration(strict_posix_options=True)
 
         result = parse_command_line_args(
@@ -77,12 +68,14 @@ class TestStrictPosixMode:
 
 
 class TestCaseSensitivity:
-    def test_case_insensitive_subcommand_matching(self):
-        spec = CommandSpecification(
-            "test",
+    def test_case_insensitive_subcommand_matching(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        spec = make_command(
             subcommands={
-                "build": CommandSpecification("build"),
-                "clean": CommandSpecification("clean"),
+                "build": make_command("build"),
+                "clean": make_command("clean"),
             },
         )
         config = ParserConfiguration(
@@ -95,20 +88,13 @@ class TestCaseSensitivity:
         assert result.subcommand is not None
         assert result.subcommand.command == "build"
 
-    def test_case_insensitive_option_matching(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=("v",),
-                ),
-            },
-        )
+    def test_case_insensitive_option_matching(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        verbose = make_flag_opt(name="verbose", short_names=("v",))
+        spec = make_command(options={"verbose": verbose})
         config = ParserConfiguration(
             case_sensitive_commands=False,
             case_sensitive_options=False,
@@ -120,12 +106,14 @@ class TestCaseSensitivity:
 
 
 class TestAbbreviation:
-    def test_subcommand_abbreviation_with_unique_prefix(self):
-        spec = CommandSpecification(
-            "test",
+    def test_subcommand_abbreviation_with_unique_prefix(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        spec = make_command(
             subcommands={
-                "build": CommandSpecification("build"),
-                "clean": CommandSpecification("clean"),
+                "build": make_command("build"),
+                "clean": make_command("clean"),
             },
         )
         config = ParserConfiguration(allow_abbreviated_subcommands=True)
@@ -135,28 +123,14 @@ class TestAbbreviation:
         assert result.subcommand is not None
         assert result.subcommand.command == "build"
 
-    def test_option_abbreviation_with_unique_prefix(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-                "version": FlagOptionSpecification(
-                    name="version",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="version",
-                    long_names=("version",),
-                    short_names=(),
-                ),
-            },
-        )
+    def test_option_abbreviation_with_unique_prefix(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        verbose = make_flag_opt(name="verbose")
+        version = make_flag_opt(name="version")
+        spec = make_command(options={"verbose": verbose, "version": version})
         config = ParserConfiguration(allow_abbreviated_options=True)
 
         result = parse_command_line_args(spec, ["--verb"], config=config)
@@ -177,22 +151,17 @@ class TestAbbreviation:
 
 
 class TestGreedyMode:
-    def test_greedy_option_consumes_all_available_values(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "files": ValueOptionSpecification(
-                    name="files",
-                    arity=Arity.zero_or_more(),
-                    greedy=True,
-                    preferred_name="files",
-                    long_names=("files",),
-                    short_names=("f",),
-                ),
-            },
-            positionals={
-                "target": Arity.at_most_one(),
-            },
+    def test_greedy_option_consumes_all_available_values(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        files = make_value_opt(
+            name="files", arity=Arity.zero_or_more(), greedy=True, short_names=("f",)
+        )
+        spec = make_command(
+            options={"files": files},
+            positionals={"target": Arity.at_most_one()},
         )
 
         result = parse_command_line_args(
@@ -202,22 +171,17 @@ class TestGreedyMode:
         assert result.options["files"] == ("a.txt", "b.txt", "c.txt")
         assert "target" not in result.positionals
 
-    def test_greedy_option_with_explicit_separator(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "files": ValueOptionSpecification(
-                    name="files",
-                    arity=Arity.zero_or_more(),
-                    greedy=True,
-                    preferred_name="files",
-                    long_names=("files",),
-                    short_names=(),
-                ),
-            },
-            positionals={
-                "target": Arity.at_most_one(),
-            },
+    def test_greedy_option_with_explicit_separator(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        files = make_value_opt(
+            name="files", arity=Arity.zero_or_more(), greedy=True, short_names=()
+        )
+        spec = make_command(
+            options={"files": files},
+            positionals={"target": Arity.at_most_one()},
         )
 
         result = parse_command_line_args(
@@ -228,20 +192,15 @@ class TestGreedyMode:
 
 
 class TestInlineValuesWithoutEquals:
-    def test_inline_value_without_equals_for_short_option(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=(),
-                    short_names=("o",),
-                ),
-            },
+    def test_inline_value_without_equals_for_short_option(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        output = make_value_opt(
+            name="output", long_names=(), short_names=("o",)
         )
+        spec = make_command(options={"output": output})
         config = ParserConfiguration(allow_inline_values_without_equals=True)
 
         result = parse_command_line_args(spec, ["-ofile.txt"], config=config)

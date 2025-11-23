@@ -25,7 +25,7 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 def make_flag_opt():
     """Factory for FlagOptionSpecification."""
 
-    def _make(  # noqa: PLR0913
+    def _make(
         name: str = "flag",
         *,
         long_names: tuple[str, ...] | None = None,
@@ -46,7 +46,6 @@ def make_flag_opt():
             name=name,
             arity=Arity.none(),
             greedy=False,
-            preferred_name=name,
             long_names=_long_names,
             short_names=_short_names,
             negative_prefixes=_negative_prefixes,
@@ -62,7 +61,7 @@ def make_flag_opt():
 def make_value_opt():
     """Factory for ValueOptionSpecification."""
 
-    def _make(  # noqa: PLR0913
+    def _make(
         name: str = "option",
         *,
         arity: Arity | None = None,
@@ -81,7 +80,6 @@ def make_value_opt():
             name=name,
             arity=_arity,
             greedy=greedy,
-            preferred_name=name,
             long_names=_long_names,
             short_names=_short_names,
             accumulation_mode=accumulation_mode,
@@ -94,7 +92,7 @@ def make_value_opt():
 
 @pytest.fixture
 def make_dict_opt():
-    def _make(  # noqa: PLR0913
+    def _make(
         name: str = "dict",
         *,
         arity: Arity | None = None,
@@ -111,13 +109,11 @@ def make_dict_opt():
         _arity = arity or Arity.exactly_one()
         _long_names = (name,) if long_names is None else long_names
         _short_names = () if short_names is None else short_names
-        _arity = arity or Arity.exactly_one()
 
         return DictOptionSpecification(
             name=name,
             arity=_arity,
             greedy=greedy,
-            preferred_name=name,
             long_names=_long_names,
             short_names=_short_names,
             accumulation_mode=accumulation_mode,

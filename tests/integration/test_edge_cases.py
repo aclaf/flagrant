@@ -1,5 +1,7 @@
 """Integration tests for edge cases and boundary conditions."""
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from flagrant.configuration import ParserConfiguration
@@ -8,27 +10,26 @@ from flagrant.parser.exceptions import UnknownOptionError
 from flagrant.specification import (
     Arity,
     CommandSpecification,
-    FlagOptionSpecification,
-    ValueOptionSpecification,
 )
+
+if TYPE_CHECKING:
+    from flagrant.specification import (
+        CommandSpecificationFactory,
+        FlagOptionSpecificationFactory,
+        ValueOptionSpecificationFactory,
+    )
 
 
 class TestLongCommandLines:
-    def test_command_with_many_options(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                f"opt{i}": FlagOptionSpecification(
-                    name=f"opt{i}",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name=f"opt{i}",
-                    long_names=(f"opt{i}",),
-                    short_names=(),
-                )
-                for i in range(50)
-            },
-        )
+    def test_command_with_many_options(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        options = {
+            f"opt{i}": make_flag_opt(name=f"opt{i}") for i in range(50)
+        }
+        spec = make_command(name="test", options=options)
 
         args = [f"--opt{i}" for i in range(50)]
         result = parse_command_line_args(spec, args)
@@ -36,12 +37,13 @@ class TestLongCommandLines:
         for i in range(50):
             assert result.options[f"opt{i}"] is True
 
-    def test_command_with_many_positionals(self):
-        spec = CommandSpecification(
-            "test",
-            positionals={
-                "files": Arity.zero_or_more(),
-            },
+    def test_command_with_many_positionals(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        spec = make_command(
+            name="test",
+            positionals={"files": Arity.zero_or_more()},
         )
 
         files = [f"file{i}.txt" for i in range(100)]
@@ -51,35 +53,16 @@ class TestLongCommandLines:
 
 
 class TestDeeplyNestedSubcommands:
-    def test_three_level_subcommand_nesting(self):
-        spec = CommandSpecification(
-            "test",
-            subcommands={
-                "level1": CommandSpecification(
-                    "level1",
-                    subcommands={
-                        "level2": CommandSpecification(
-                            "level2",
-                            subcommands={
-                                "level3": CommandSpecification(
-                                    "level3",
-                                    options={
-                                        "flag": FlagOptionSpecification(
-                                            name="flag",
-                                            arity=Arity.none(),
-                                            greedy=False,
-                                            preferred_name="flag",
-                                            long_names=("flag",),
-                                            short_names=(),
-                                        ),
-                                    },
-                                ),
-                            },
-                        ),
-                    },
-                ),
-            },
-        )
+    def test_three_level_subcommand_nesting(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        flag = make_flag_opt(name="flag")
+        level3 = make_command("level3", options={"flag": flag})
+        level2 = make_command("level2", subcommands={"level3": level3})
+        level1 = make_command("level1", subcommands={"level2": level2})
+        spec = make_command("test", subcommands={"level1": level1})
 
         result = parse_command_line_args(spec, ["level1", "level2", "level3", "--flag"])
 
@@ -93,51 +76,38 @@ class TestDeeplyNestedSubcommands:
 
 
 class TestSpecialCharactersInValues:
-    def test_values_with_unicode_characters(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "message": ValueOptionSpecification(
-                    name="message",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="message",
-                    long_names=("message",),
-                    short_names=("m",),
-                ),
-            },
-        )
+    def test_values_with_unicode_characters(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        message = make_value_opt(name="message", short_names=("m",))
+        spec = make_command(options={"message": message})
 
         result = parse_command_line_args(spec, ["--message", "Hello 世界 🌍"])
 
         assert result.options["message"] == "Hello 世界 🌍"
 
-    def test_values_with_special_characters(self):
-        spec = CommandSpecification(
-            "test",
-            positionals={
-                "pattern": Arity.exactly_one(),
-            },
+    def test_values_with_special_characters(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        spec = make_command(
+            name="test",
+            positionals={"pattern": Arity.exactly_one()},
         )
 
         result = parse_command_line_args(spec, ["*.{py,txt}[0-9]"])
 
         assert result.positionals["pattern"] == "*.{py,txt}[0-9]"
 
-    def test_values_with_equals_signs(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "env": ValueOptionSpecification(
-                    name="env",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="env",
-                    long_names=("env",),
-                    short_names=("e",),
-                ),
-            },
-        )
+    def test_values_with_equals_signs(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        env = make_value_opt(name="env", short_names=("e",))
+        spec = make_command(options={"env": env})
 
         result = parse_command_line_args(spec, ["--env", "KEY=VALUE"])
 
@@ -145,31 +115,25 @@ class TestSpecialCharactersInValues:
 
 
 class TestEmptyValuesAndWhitespace:
-    def test_empty_string_as_option_value(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "value": ValueOptionSpecification(
-                    name="value",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="value",
-                    long_names=("value",),
-                    short_names=(),
-                ),
-            },
-        )
+    def test_empty_string_as_option_value(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        value = make_value_opt(name="value")
+        spec = make_command(options={"value": value})
 
         result = parse_command_line_args(spec, ["--value", ""])
 
         assert result.options["value"] == ""
 
-    def test_whitespace_only_value(self):
-        spec = CommandSpecification(
-            "test",
-            positionals={
-                "text": Arity.exactly_one(),
-            },
+    def test_whitespace_only_value(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        spec = make_command(
+            name="test",
+            positionals={"text": Arity.exactly_one()},
         )
 
         result = parse_command_line_args(spec, ["   "])
@@ -178,24 +142,26 @@ class TestEmptyValuesAndWhitespace:
 
 
 class TestValuesThatLookLikeOptions:
-    def test_negative_number_as_positional_value(self):
-        spec = CommandSpecification(
-            "test",
-            positionals={
-                "number": Arity.exactly_one(),
-            },
+    def test_negative_number_as_positional_value(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        spec = make_command(
+            name="test",
+            positionals={"number": Arity.exactly_one()},
         )
 
         result = parse_command_line_args(spec, ["--", "-42"])
 
         assert result.extra_args == ("-42",)
 
-    def test_option_like_value_after_separator(self):
-        spec = CommandSpecification(
-            "test",
-            positionals={
-                "args": Arity.zero_or_more(),
-            },
+    def test_option_like_value_after_separator(
+        self,
+        make_command: "CommandSpecificationFactory",
+    ):
+        spec = make_command(
+            name="test",
+            positionals={"args": Arity.zero_or_more()},
         )
 
         result = parse_command_line_args(spec, ["--", "--help", "-v", "--version"])
@@ -204,28 +170,15 @@ class TestValuesThatLookLikeOptions:
 
 
 class TestKnownIssues:
-    def test_prefix_match_on_flag_raises_correct_exception(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-                "value": ValueOptionSpecification(
-                    name="value",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="value",
-                    long_names=("value",),
-                    short_names=(),
-                ),
-            },
-        )
+    def test_prefix_match_on_flag_raises_correct_exception(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        verbose = make_flag_opt(name="verbose")
+        value = make_value_opt(name="value")
+        spec = make_command(options={"verbose": verbose, "value": value})
         config = ParserConfiguration(allow_abbreviated_options=True)
 
         with pytest.raises(UnknownOptionError):
@@ -250,22 +203,19 @@ class TestKnownIssues:
             "by positionals"
         )
     )
-    def test_range_arity_option_followed_by_positionals(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "files": ValueOptionSpecification(
-                    name="files",
-                    arity=Arity.exact(2),
-                    greedy=False,
-                    preferred_name="files",
-                    long_names=("files",),
-                    short_names=("f",),
-                ),
-            },
-            positionals={
-                "target": Arity.exactly_one(),
-            },
+    def test_range_arity_option_followed_by_positionals(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        files = make_value_opt(
+            name="files",
+            arity=Arity.exact(2),
+            short_names=("f",),
+        )
+        spec = make_command(
+            options={"files": files},
+            positionals={"target": Arity.exactly_one()},
         )
 
         result = parse_command_line_args(

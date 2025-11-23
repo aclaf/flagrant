@@ -1,48 +1,36 @@
 """Integration tests for complex option and feature combinations."""
 
+from typing import TYPE_CHECKING
+
 from flagrant.parser import parse_command_line_args
 from flagrant.specification import (
     Arity,
-    CommandSpecification,
-    FlagOptionSpecification,
-    ValueOptionSpecification,
 )
 from flagrant.specification.enums import (
     FlagAccumulationMode,
     ValueAccumulationMode,
 )
 
+if TYPE_CHECKING:
+    from flagrant.specification import (
+        CommandSpecificationFactory,
+        FlagOptionSpecificationFactory,
+        ValueOptionSpecificationFactory,
+    )
+
 
 class TestMultipleOptionInteractions:
-    def test_mixed_short_and_long_options_with_values(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=("v",),
-                ),
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=("output",),
-                    short_names=("o",),
-                ),
-                "format": ValueOptionSpecification(
-                    name="format",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="format",
-                    long_names=("format",),
-                    short_names=("f",),
-                ),
-            },
+    def test_mixed_short_and_long_options_with_values(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        verbose = make_flag_opt(name="verbose", short_names=("v",))
+        output = make_value_opt(name="output", short_names=("o",))
+        fmt = make_value_opt(name="format", short_names=("f",))
+        spec = make_command(
+            options={"verbose": verbose, "output": output, "format": fmt}
         )
 
         result = parse_command_line_args(
@@ -53,27 +41,17 @@ class TestMultipleOptionInteractions:
         assert result.options["output"] == "file.txt"
         assert result.options["format"] == "json"
 
-    def test_options_interspersed_with_positionals(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "force": FlagOptionSpecification(
-                    name="force",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="force",
-                    long_names=("force",),
-                    short_names=("f",),
-                ),
-                "recursive": FlagOptionSpecification(
-                    name="recursive",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="recursive",
-                    long_names=("recursive",),
-                    short_names=("r",),
-                ),
-            },
+    def test_options_interspersed_with_positionals(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        force = make_flag_opt(name="force", short_names=("f",))
+        recursive = make_flag_opt(
+            name="recursive", short_names=("r",)
+        )
+        spec = make_command(
+            options={"force": force, "recursive": recursive},
             positionals={
                 "source": Arity.exactly_one(),
                 "dest": Arity.exactly_one(),
@@ -89,30 +67,24 @@ class TestMultipleOptionInteractions:
         assert result.positionals["source"] == "src.txt"
         assert result.positionals["dest"] == "dest.txt"
 
-    def test_repeated_options_with_different_accumulation_modes(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=("v",),
-                    accumulation_mode=FlagAccumulationMode.COUNT,
-                ),
-                "include": ValueOptionSpecification(
-                    name="include",
-                    arity=Arity.at_least_one(),
-                    greedy=False,
-                    preferred_name="include",
-                    long_names=("include",),
-                    short_names=("I",),
-                    accumulation_mode=ValueAccumulationMode.EXTEND,
-                ),
-            },
+    def test_repeated_options_with_different_accumulation_modes(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        verbose = make_flag_opt(
+            name="verbose",
+            short_names=("v",),
+            accumulation_mode=FlagAccumulationMode.COUNT,
         )
+        include = make_value_opt(
+            name="include",
+            arity=Arity.at_least_one(),
+            short_names=("I",),
+            accumulation_mode=ValueAccumulationMode.EXTEND,
+        )
+        spec = make_command(options={"verbose": verbose, "include": include})
 
         result = parse_command_line_args(
             spec, ["-v", "-v", "-v", "-I", "*.py", "-I", "*.txt"]
@@ -123,45 +95,23 @@ class TestMultipleOptionInteractions:
 
 
 class TestSubcommandComplexity:
-    def test_subcommand_with_parent_and_child_options(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "config": ValueOptionSpecification(
-                    name="config",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="config",
-                    long_names=("config",),
-                    short_names=("c",),
-                ),
-            },
-            subcommands={
-                "build": CommandSpecification(
-                    "build",
-                    options={
-                        "target": ValueOptionSpecification(
-                            name="target",
-                            arity=Arity.exactly_one(),
-                            greedy=False,
-                            preferred_name="target",
-                            long_names=("target",),
-                            short_names=("t",),
-                        ),
-                        "verbose": FlagOptionSpecification(
-                            name="verbose",
-                            arity=Arity.none(),
-                            greedy=False,
-                            preferred_name="verbose",
-                            long_names=("verbose",),
-                            short_names=("v",),
-                        ),
-                    },
-                    positionals={
-                        "files": Arity.zero_or_more(),
-                    },
-                ),
-            },
+    def test_subcommand_with_parent_and_child_options(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        config = make_value_opt(name="config", short_names=("c",))
+        target = make_value_opt(name="target", short_names=("t",))
+        verbose = make_flag_opt(name="verbose", short_names=("v",))
+
+        build_cmd = make_command(
+            "build",
+            options={"target": target, "verbose": verbose},
+            positionals={"files": Arity.zero_or_more()},
+        )
+        spec = make_command(
+            options={"config": config}, subcommands={"build": build_cmd}
         )
 
         result = parse_command_line_args(
@@ -185,49 +135,24 @@ class TestSubcommandComplexity:
         assert result.subcommand.options["target"] == "release"
         assert result.subcommand.positionals["files"] == ("main.c", "utils.c")
 
-    def test_three_level_subcommands_with_options_at_each_level(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "global": FlagOptionSpecification(
-                    name="global",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="global",
-                    long_names=("global",),
-                    short_names=("g",),
-                ),
-            },
-            subcommands={
-                "level1": CommandSpecification(
-                    "level1",
-                    options={
-                        "level1-opt": FlagOptionSpecification(
-                            name="level1-opt",
-                            arity=Arity.none(),
-                            greedy=False,
-                            preferred_name="level1-opt",
-                            long_names=("level1-opt",),
-                            short_names=(),
-                        ),
-                    },
-                    subcommands={
-                        "level2": CommandSpecification(
-                            "level2",
-                            options={
-                                "level2-opt": ValueOptionSpecification(
-                                    name="level2-opt",
-                                    arity=Arity.exactly_one(),
-                                    greedy=False,
-                                    preferred_name="level2-opt",
-                                    long_names=("level2-opt",),
-                                    short_names=(),
-                                ),
-                            },
-                        ),
-                    },
-                ),
-            },
+    def test_three_level_subcommands_with_options_at_each_level(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        global_opt = make_flag_opt(name="global", short_names=("g",))
+        level1_opt = make_flag_opt(name="level1-opt")
+        level2_opt = make_value_opt(name="level2-opt")
+
+        level2_cmd = make_command("level2", options={"level2-opt": level2_opt})
+        level1_cmd = make_command(
+            "level1",
+            options={"level1-opt": level1_opt},
+            subcommands={"level2": level2_cmd},
+        )
+        spec = make_command(
+            "test", options={"global": global_opt}, subcommands={"level1": level1_cmd}
         )
 
         result = parse_command_line_args(
@@ -245,35 +170,25 @@ class TestSubcommandComplexity:
 
 
 class TestClusteredOptionsWithValues:
-    def test_clustered_flags_followed_by_value_option(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=(),
-                    short_names=("v",),
-                ),
-                "interactive": FlagOptionSpecification(
-                    name="interactive",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="interactive",
-                    long_names=(),
-                    short_names=("i",),
-                ),
-                "file": ValueOptionSpecification(
-                    name="file",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="file",
-                    long_names=(),
-                    short_names=("f",),
-                ),
-            },
+    def test_clustered_flags_followed_by_value_option(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        verbose = make_flag_opt(
+            name="verbose", long_names=(), short_names=("v",)
+        )
+        interactive = make_flag_opt(
+            name="interactive",
+            long_names=(),
+            short_names=("i",),
+        )
+        file_opt = make_value_opt(
+            name="file", long_names=(), short_names=("f",)
+        )
+        spec = make_command(
+            options={"verbose": verbose, "interactive": interactive, "file": file_opt}
         )
 
         result = parse_command_line_args(spec, ["-vif", "output.txt"])
@@ -282,35 +197,20 @@ class TestClusteredOptionsWithValues:
         assert result.options["interactive"] is True
         assert result.options["file"] == "output.txt"
 
-    def test_multiple_value_options_with_different_arities(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "single": ValueOptionSpecification(
-                    name="single",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="single",
-                    long_names=("single",),
-                    short_names=("s",),
-                ),
-                "multi": ValueOptionSpecification(
-                    name="multi",
-                    arity=Arity.at_least_one(),
-                    greedy=False,
-                    preferred_name="multi",
-                    long_names=("multi",),
-                    short_names=("m",),
-                ),
-                "optional": ValueOptionSpecification(
-                    name="optional",
-                    arity=Arity.at_most_one(),
-                    greedy=False,
-                    preferred_name="optional",
-                    long_names=("optional",),
-                    short_names=("o",),
-                ),
-            },
+    def test_multiple_value_options_with_different_arities(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        single = make_value_opt(name="single", short_names=("s",))
+        multi = make_value_opt(
+            name="multi", arity=Arity.at_least_one(), short_names=("m",)
+        )
+        optional = make_value_opt(
+            name="optional", arity=Arity.at_most_one(), short_names=("o",)
+        )
+        spec = make_command(
+            options={"single": single, "multi": multi, "optional": optional}
         )
 
         result = parse_command_line_args(
@@ -332,22 +232,15 @@ class TestClusteredOptionsWithValues:
 
 
 class TestSeparatorWithComplexCommands:
-    def test_separator_with_options_and_positionals_before_and_after(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=("v",),
-                ),
-            },
-            positionals={
-                "files": Arity.zero_or_more(),
-            },
+    def test_separator_with_options_and_positionals_before_and_after(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_flag_opt: "FlagOptionSpecificationFactory",
+    ):
+        verbose = make_flag_opt(name="verbose", short_names=("v",))
+        spec = make_command(
+            options={"verbose": verbose},
+            positionals={"files": Arity.zero_or_more()},
         )
 
         result = parse_command_line_args(

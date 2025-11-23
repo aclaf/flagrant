@@ -1,7 +1,11 @@
+
 from flagrant.configuration import ParserConfiguration
 from flagrant.enums import UngroupedPositionalStrategy
 from flagrant.parser import parse_command_line_args
-from flagrant.specification import Arity, CommandSpecification
+from flagrant.specification import (
+    Arity,
+    CommandSpecification,
+)
 
 
 class TestUngroupedIgnoreWithDelimiter:

@@ -1,36 +1,29 @@
+from typing import TYPE_CHECKING
+
 import pytest
 
 from flagrant.configuration import ParserConfiguration
 from flagrant.parser import parse_command_line_args
 from flagrant.parser.exceptions import UnknownOptionError
-from flagrant.specification import (
-    Arity,
-    CommandSpecification,
-    ValueOptionSpecification,
-)
+
+if TYPE_CHECKING:
+    from flagrant.specification import (
+        CommandSpecificationFactory,
+        ValueOptionSpecificationFactory,
+    )
 
 
 class TestAmbiguousPrefixMatching:
-    def test_longer_option_inline_value_matches_shorter_option_prefix(self):
-        spec = CommandSpecification(
+    def test_longer_option_inline_value_matches_shorter_option_prefix(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        spec = make_command(
             name="test",
             options={
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=("output",),
-                    short_names=(),
-                ),
-                "outputdir": ValueOptionSpecification(
-                    name="outputdir",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="outputdir",
-                    long_names=("outputdir",),
-                    short_names=(),
-                ),
+                "output": make_value_opt(name="output"),
+                "outputdir": make_value_opt(name="outputdir"),
             },
         )
         config = ParserConfiguration(allow_inline_values_without_equals=True)
@@ -40,26 +33,16 @@ class TestAmbiguousPrefixMatching:
         assert result.options["output"] == "file.txt"
         assert "outputdir" not in result.options
 
-    def test_exact_option_match_takes_precedence_over_prefix_with_inline_value(self):
-        spec = CommandSpecification(
+    def test_exact_option_match_takes_precedence_over_prefix_with_inline_value(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        spec = make_command(
             name="test",
             options={
-                "out": ValueOptionSpecification(
-                    name="out",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="out",
-                    long_names=("out",),
-                    short_names=(),
-                ),
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=("output",),
-                    short_names=(),
-                ),
+                "out": make_value_opt(name="out"),
+                "output": make_value_opt(name="output"),
             },
         )
         config = ParserConfiguration(allow_inline_values_without_equals=True)
@@ -69,26 +52,16 @@ class TestAmbiguousPrefixMatching:
         assert result.options["output"] == "value"
         assert "out" not in result.options
 
-    def test_multiple_prefix_matches_uses_first_match(self):
-        spec = CommandSpecification(
+    def test_multiple_prefix_matches_uses_first_match(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        spec = make_command(
             name="test",
             options={
-                "verbose": ValueOptionSpecification(
-                    name="verbose",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-                "version": ValueOptionSpecification(
-                    name="version",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="version",
-                    long_names=("version",),
-                    short_names=(),
-                ),
+                "verbose": make_value_opt(name="verbose"),
+                "version": make_value_opt(name="version"),
             },
         )
         config = ParserConfiguration(allow_inline_values_without_equals=True)
@@ -97,18 +70,15 @@ class TestAmbiguousPrefixMatching:
 
         assert result.options["verbose"] == "2"
 
-    def test_inline_value_without_equals_disabled_raises_unknown_option(self):
-        spec = CommandSpecification(
+    def test_inline_value_without_equals_disabled_raises_unknown_option(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        spec = make_command(
             name="test",
             options={
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=("output",),
-                    short_names=(),
-                ),
+                "output": make_value_opt(name="output"),
             },
         )
         config = ParserConfiguration(allow_inline_values_without_equals=False)
@@ -118,34 +88,17 @@ class TestAmbiguousPrefixMatching:
 
         assert exc_info.value.option == "outputfile.txt"
 
-    def test_nested_prefix_matching_with_three_options(self):
-        spec = CommandSpecification(
+    def test_nested_prefix_matching_with_three_options(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        spec = make_command(
             name="test",
             options={
-                "a": ValueOptionSpecification(
-                    name="a",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="a",
-                    long_names=("a",),
-                    short_names=(),
-                ),
-                "ab": ValueOptionSpecification(
-                    name="ab",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="ab",
-                    long_names=("ab",),
-                    short_names=(),
-                ),
-                "abc": ValueOptionSpecification(
-                    name="abc",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="abc",
-                    long_names=("abc",),
-                    short_names=(),
-                ),
+                "a": make_value_opt(name="a", long_names=("a",)),
+                "ab": make_value_opt(name="ab", long_names=("ab",)),
+                "abc": make_value_opt(name="abc", long_names=("abc",)),
             },
         )
         config = ParserConfiguration(allow_inline_values_without_equals=True)
