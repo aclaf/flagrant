@@ -88,8 +88,7 @@ class TestUnderscoreHyphenConversion:
             },
         )
         config = ParserConfiguration(
-            convert_underscores=True,
-            allow_abbreviated_options=True
+            convert_underscores=True, allow_abbreviated_options=True
         )
 
         result = parse_command_line_args(spec, ["--log_l"], config)
@@ -254,8 +253,7 @@ class TestCaseInsensitivity:
             },
         )
         config = ParserConfiguration(
-            case_sensitive_options=False,
-            allow_abbreviated_options=True
+            case_sensitive_options=False, allow_abbreviated_options=True
         )
 
         result = parse_command_line_args(spec, ["--VERB"], config)
@@ -279,8 +277,7 @@ class TestCaseInsensitivity:
             },
         )
         config = ParserConfiguration(
-            case_sensitive_options=False,
-            case_sensitive_commands=True
+            case_sensitive_options=False, case_sensitive_commands=True
         )
 
         result = parse_command_line_args(spec, ["--VERBOSE"], config)

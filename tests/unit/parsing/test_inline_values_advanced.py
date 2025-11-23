@@ -80,8 +80,7 @@ class TestInlineValuesWithoutEquals:
             },
         )
         config = ParserConfiguration(
-            allow_inline_values_without_equals=True,
-            allow_negative_numbers=True
+            allow_inline_values_without_equals=True, allow_negative_numbers=True
         )
 
         # Act
@@ -163,9 +162,7 @@ class TestInlineValuesWithoutEquals:
         config = ParserConfiguration(allow_inline_values_without_equals=True)
 
         # Act - inline value stops at "--" even if greedy
-        result = parse_command_line_args(
-            spec, ["--option", "value", "more"], config
-        )
+        result = parse_command_line_args(spec, ["--option", "value", "more"], config)
 
         # Assert - only "value" is captured, "more" is not because arity is 1
         assert result.options["option"] == "value"

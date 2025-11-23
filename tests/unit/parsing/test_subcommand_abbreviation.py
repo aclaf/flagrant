@@ -112,7 +112,7 @@ class TestSubcommandAbbreviation:
                         "migrate": CommandSpecification("migrate"),
                         "backup": CommandSpecification("backup"),
                         "restore": CommandSpecification("restore"),
-                    }
+                    },
                 ),
             },
         )
@@ -156,8 +156,7 @@ class TestSubcommandAbbreviation:
 
         # Test case-sensitive abbreviation (default)
         config_sensitive = ParserConfiguration(
-            allow_abbreviated_subcommands=True,
-            case_sensitive_commands=True
+            allow_abbreviated_subcommands=True, case_sensitive_commands=True
         )
 
         # Act & Assert - case sensitive
@@ -171,8 +170,7 @@ class TestSubcommandAbbreviation:
 
         # Test case-insensitive abbreviation
         config_insensitive = ParserConfiguration(
-            allow_abbreviated_subcommands=True,
-            case_sensitive_commands=False
+            allow_abbreviated_subcommands=True, case_sensitive_commands=False
         )
 
         # When case-insensitive, "bui" should match both but parser picks one

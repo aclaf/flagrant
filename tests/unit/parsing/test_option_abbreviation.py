@@ -196,8 +196,7 @@ class TestOptionAbbreviation:
             },
         )
         config = ParserConfiguration(
-            allow_abbreviated_options=True,
-            minimum_abbreviation_length=3
+            allow_abbreviated_options=True, minimum_abbreviation_length=3
         )
 
         # Act & Assert
@@ -279,8 +278,7 @@ class TestOptionAbbreviation:
 
         # Test case-sensitive abbreviation (default)
         config_sensitive = ParserConfiguration(
-            allow_abbreviated_options=True,
-            case_sensitive_options=True
+            allow_abbreviated_options=True, case_sensitive_options=True
         )
 
         # Act & Assert - case sensitive
@@ -292,8 +290,7 @@ class TestOptionAbbreviation:
 
         # Test case-insensitive abbreviation
         config_insensitive = ParserConfiguration(
-            allow_abbreviated_options=True,
-            case_sensitive_options=False
+            allow_abbreviated_options=True, case_sensitive_options=False
         )
 
         # Both should now be ambiguous when case-insensitive

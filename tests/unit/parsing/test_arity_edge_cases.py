@@ -367,9 +367,7 @@ class TestMixedArityInAccumulationModes:
             },
         )
 
-        result = parse_command_line_args(
-            spec, ["--values", "1", "--values", "2", "3"]
-        )
+        result = parse_command_line_args(spec, ["--values", "1", "--values", "2", "3"])
 
         assert result.options["values"] == ("2", "3")
 
@@ -389,9 +387,7 @@ class TestMixedArityInAccumulationModes:
             },
         )
 
-        result = parse_command_line_args(
-            spec, ["--values", "1", "--values", "2", "3"]
-        )
+        result = parse_command_line_args(spec, ["--values", "1", "--values", "2", "3"])
 
         assert result.options["values"] == ("1",)
 
@@ -531,9 +527,7 @@ class TestGreedyModeArityInteractions:
             subcommands={"build": CommandSpecification("build")},
         )
 
-        result = parse_command_line_args(
-            spec, ["--files", "a.txt", "b.txt", "build"]
-        )
+        result = parse_command_line_args(spec, ["--files", "a.txt", "b.txt", "build"])
 
         assert result.options["files"] == ("a.txt", "b.txt")
         assert result.subcommand is not None

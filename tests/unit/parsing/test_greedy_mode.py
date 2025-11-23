@@ -161,9 +161,7 @@ class TestGreedyModeInlineValues:
             },
         )
 
-        result = parse_command_line_args(
-            spec, ["--files=first.txt", "second.txt"]
-        )
+        result = parse_command_line_args(spec, ["--files=first.txt", "second.txt"])
 
         assert result.options["files"] == ("first.txt", "second.txt")
 

@@ -157,9 +157,7 @@ class TestStrictPosixWithSubcommands:
         )
         config = ParserConfiguration(strict_posix_options=True)
 
-        result = parse_command_line_args(
-            spec, ["--verbose", "build"], config=config
-        )
+        result = parse_command_line_args(spec, ["--verbose", "build"], config=config)
 
         assert result.options["verbose"] is True
         assert result.subcommand is not None
