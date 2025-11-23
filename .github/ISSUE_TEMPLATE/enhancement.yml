@@ -1,0 +1,131 @@
+---
+name: Enhancement request
+description: Suggest a new feature or improvement to Flagrant
+title: "[Enhancement]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting an enhancement to Flagrant!
+
+        **Important context about this pre-release project:**
+        - Flagrant is in active pre-1.0 development with rapidly evolving APIs
+        - Breaking changes are acceptable and encouraged when they improve the
+          design
+        - The project is not yet accepting pull requests (see
+          [CONTRIBUTING.md](https://github.com/aclaf/flagrant/blob/main/CONTRIBUTING.md))
+        - Enhancement suggestions help shape the project's direction before the
+          1.0 release
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or limitation
+      description: >-
+        What problem are you trying to solve? What limitation are you
+        experiencing? Describe the use case or scenario that motivated this
+        enhancement request.
+      placeholder: >-
+        When defining complex command-line interfaces, I need to express
+        dependencies between options (e.g., --foo requires --bar), but the
+        current specification API doesn't support this directly.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: >-
+        How would you like to solve this problem? What API or feature would you
+        like to see? Include code examples showing how you'd like to use the
+        proposed feature.
+      placeholder: |
+        Add a `requires` attribute to the `Option` specification class to
+        define dependencies. The parser would then enforce these constraints.
+
+        ```python
+        from flagrant.specification import AppSpecification, CommandSpecification, Option
+
+        spec = AppSpecification(
+            root=CommandSpecification(
+                name="app",
+                options=[
+                    Option(long_name="foo", requires="bar"), # Hypothetical API
+                    Option(long_name="bar"),
+                ],
+            )
+        )
+        ```
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: >-
+        What alternative solutions or workarounds have you considered?
+        Why are they insufficient?
+      placeholder: >-
+        I could implement this validation logic myself after parsing, but it
+        would be more robust and declarative if the parser handled it.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: breaking-ok
+    attributes:
+      label: Breaking change acceptance
+      description: >-
+        Would this enhancement require breaking changes to existing APIs?
+        Note: Breaking changes are acceptable for pre-1.0 development if they
+        improve the design.
+      options:
+        - "No breaking changes needed"
+        - "Minor breaking changes acceptable"
+        - "Major breaking changes acceptable"
+        - "Not sure"
+    validations:
+      required: false
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case or real-world example
+      description: >-
+        Describe a real-world scenario where this enhancement would be valuable.
+        What kind of CLI applications would benefit from this feature?
+      placeholder: >-
+        Building a tool where one option configures a feature that only makes
+        sense if another option is also present.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: >-
+        Any other context, examples from other frameworks, or relevant
+        information. Feel free to reference how other CLI frameworks handle
+        this problem.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: >-
+            I have searched existing issues and discussions to ensure this
+            hasn't been suggested already
+          required: true
+        - label: >-
+            I have described the problem or limitation I'm trying to solve
+          required: true
+        - label: I have proposed a concrete solution or API design
+          required: true
