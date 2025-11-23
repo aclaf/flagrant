@@ -10,8 +10,7 @@ This page documents the parser configuration model in Flagrant. It explains the 
 - [Configuration model](#configuration-model)
 - [Positional mode configuration](#positional-mode-configuration)
 - [Name resolution configuration](#name-resolution-configuration)
-- [Flag value handling](#flag-value-handling)
-- [Negative number handling](#negative-number-handling)
+- [Flag behavior](#flag-behavior)
 - [Value flattening](#value-flattening)
 - [Configuration interactions](#configuration-interactions)
 - [Preset configurations](#preset-configurations)
@@ -226,7 +225,7 @@ except UnexpectedPositionalArgumentError:
 
 ## Name resolution configuration
 
-Name resolution determines how user-provided option and subcommand names match against defined specifications. Multiple strategies can be independently enabled, providing rich compositional matching behavior.
+Name resolution determines how user-provided option and subcommand names match against defined specifications. You can enable multiple strategies independently, providing rich compositional matching behavior.
 
 ### Abbreviation matching
 
@@ -325,14 +324,14 @@ except UnknownOptionError:
 
 - Must be >= 1
 - Values less than 1 raise `ParserConfigurationError` at construction time
-- Does not affect exact matches (e.g., `--verbose` works regardless of minimum)
+- Does not affect exact matches (for example, `--verbose` works regardless of minimum)
 
 **Practical values:**
 
 - `1` - Maximum convenience, any single character prefix works
 - `3` - Balance between convenience and typo safety (default)
 - `4-5` - Conservative, reduces accidental matches
-- Higher - Very conservative, requires long prefixes
+- Higher - Extremely conservative, requires long prefixes
 
 ### Alias support
 
@@ -686,7 +685,7 @@ assert result.options["input"].value == ("a", "b", "c", "d")
 
 - When the structure of values (grouped by occurrence) is semantically significant
 - When you need to preserve which values came from the same option occurrence
-- Building complex data structures where nesting conveys meaning (e.g., key-value pairs)
+- Building complex data structures where nesting conveys meaning (for example, key-value pairs)
 - Options with arity > 1 where each occurrence represents a logical unit
 
 **When to use EXTEND:**
