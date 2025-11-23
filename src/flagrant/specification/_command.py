@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cached_property
 from types import MappingProxyType
@@ -253,3 +254,6 @@ class CommandSpecification:
                 name_map[key] = subcommand.name
 
         return name_map
+
+
+CommandSpecificationFactory = Callable[..., CommandSpecification]

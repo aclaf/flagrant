@@ -1,108 +1,70 @@
+from typing import TYPE_CHECKING
+
 import pytest
 
 from flagrant.parser import parse_command_line_args
 from flagrant.parser.exceptions import OptionMissingValueError
-from flagrant.specification import (
-    Arity,
-    CommandSpecification,
-    ValueOptionSpecification,
-)
+
+if TYPE_CHECKING:
+    from flagrant.specification import (
+        CommandSpecificationFactory,
+        ValueOptionSpecificationFactory,
+    )
 
 
-class TestEmptyValueHandling:
-    def test_option_with_empty_string_value_via_equals(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=("output",),
-                    short_names=(),
-                )
-            },
-        )
+class TestValueParsingEdgeCases:
+    @pytest.mark.parametrize(
+        ("name", "option_kwargs", "args", "expected_value"),
+        [
+            (
+                "empty_string_via_equals",
+                {},
+                ["--option="],
+                "",
+            ),
+            (
+                "whitespace_only",
+                {},
+                ["--option", "   "],
+                "   ",
+            ),
+            (
+                "value_containing_equals",
+                {},
+                ["--option", "key=value"],
+                "key=value",
+            ),
+            (
+                "negative_number_allowed",
+                {"allow_negative_numbers": True},
+                ["--option", "-42"],
+                "-42",
+            ),
+        ],
+    )
+    def test_value_parsing_edge_cases(  # noqa: PLR0913
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+        name: str,
+        option_kwargs: dict[str, bool],
+        args: list[str],
+        expected_value: str,
+    ):
+        opt = make_value_opt(**option_kwargs)
+        spec = make_command(options={"option": opt})
 
-        result = parse_command_line_args(spec, ["--output="])
+        result = parse_command_line_args(spec, args)
 
-        assert result.options["output"] == ""
+        assert result.options["option"] == expected_value
 
-    def test_option_with_whitespace_only_value_preserves_whitespace(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=("output",),
-                    short_names=(),
-                )
-            },
-        )
-
-        result = parse_command_line_args(spec, ["--output", "   "])
-
-        assert result.options["output"] == "   "
-
-
-class TestSpecialCharacterValues:
-    def test_value_containing_equals_sign_preserved(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "config": ValueOptionSpecification(
-                    name="config",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="config",
-                    long_names=("config",),
-                    short_names=(),
-                )
-            },
-        )
-
-        result = parse_command_line_args(spec, ["--config", "key=value"])
-
-        assert result.options["config"] == "key=value"
-
-    def test_value_with_leading_hyphen_when_negative_numbers_allowed(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "number": ValueOptionSpecification(
-                    name="number",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="number",
-                    long_names=("number",),
-                    short_names=(),
-                    allow_negative_numbers=True,
-                )
-            },
-        )
-
-        result = parse_command_line_args(spec, ["--number", "-42"])
-
-        assert result.options["number"] == "-42"
-
-    def test_separator_moves_remaining_args_to_extra_args(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "flag": ValueOptionSpecification(
-                    name="flag",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="flag",
-                    long_names=("flag",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_separator_moves_remaining_args_to_extra_args(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="flag")
+        spec = make_command(options={"flag": opt})
 
         result = parse_command_line_args(spec, ["--flag", "value", "--", "--other"])
 
@@ -111,39 +73,25 @@ class TestSpecialCharacterValues:
 
 
 class TestBoundaryConditions:
-    def test_option_at_end_of_args_with_satisfied_arity(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=("output",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_option_at_end_of_args_with_satisfied_arity(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="output")
+        spec = make_command(options={"output": opt})
 
         result = parse_command_line_args(spec, ["--output", "file.txt"])
 
         assert result.options["output"] == "file.txt"
 
-    def test_option_at_end_of_args_with_unsatisfied_arity_raises_error(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=("output",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_option_at_end_of_args_with_unsatisfied_arity_raises_error(
+        self,
+        make_command: "CommandSpecificationFactory",
+        make_value_opt: "ValueOptionSpecificationFactory",
+    ):
+        opt = make_value_opt(name="output")
+        spec = make_command(options={"output": opt})
 
         with pytest.raises(OptionMissingValueError):
             parse_command_line_args(spec, ["--output"])

@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import TYPE_CHECKING
@@ -399,6 +400,10 @@ NonFlagOptionSpecificationType = DictOptionSpecification | ValueOptionSpecificat
 OptionSpecificationType = (
     DictOptionSpecification | FlagOptionSpecification | ValueOptionSpecification
 )
+OptionSpecificationFactory = Callable[..., OptionSpecificationType]
+DictOptionSpecificationFactory = Callable[..., DictOptionSpecification]
+FlagOptionSpecificationFactory = Callable[..., FlagOptionSpecification]
+ValueOptionSpecificationFactory = Callable[..., ValueOptionSpecification]
 
 
 def is_dict_option(spec: OptionSpecification) -> TypeIs[DictOptionSpecification]:

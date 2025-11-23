@@ -5,27 +5,23 @@ from flagrant.parser.exceptions import OptionMissingValueError
 from flagrant.specification import (
     Arity,
     CommandSpecification,
+    CommandSpecificationFactory,
     FlagOptionSpecification,
+    FlagOptionSpecificationFactory,
     ValueOptionSpecification,
+    ValueOptionSpecificationFactory,
 )
 from flagrant.specification.enums import ValueAccumulationMode
 
 
 class TestExactArityPatterns:
-    def test_exactly_one_arity_option_consumes_one_value(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "output": ValueOptionSpecification(
-                    name="output",
-                    arity=Arity.exactly_one(),
-                    greedy=False,
-                    preferred_name="output",
-                    long_names=("output",),
-                    short_names=(),
-                )
-            },
-        )
+    def test_exactly_one_arity_option_consumes_one_value(
+        self,
+        make_command: CommandSpecificationFactory,
+        make_value_opt: ValueOptionSpecificationFactory,
+    ):
+        output_option = make_value_opt(name="output", arity=Arity.exactly_one())
+        spec = make_command(options={"output": output_option})
 
         result = parse_command_line_args(spec, ["--output", "file.txt"])
 
@@ -146,27 +142,16 @@ class TestInsufficientValuesErrors:
         with pytest.raises(OptionMissingValueError):
             parse_command_line_args(spec, ["--rgb", "255", "128"])
 
-    def test_option_stops_at_next_option_causing_insufficient_values(self):
-        spec = CommandSpecification(
-            "test",
-            options={
-                "files": ValueOptionSpecification(
-                    name="files",
-                    arity=Arity(2, 2),
-                    greedy=False,
-                    preferred_name="files",
-                    long_names=("files",),
-                    short_names=(),
-                ),
-                "verbose": FlagOptionSpecification(
-                    name="verbose",
-                    arity=Arity.none(),
-                    greedy=False,
-                    preferred_name="verbose",
-                    long_names=("verbose",),
-                    short_names=(),
-                ),
-            },
+    def test_option_stops_at_next_option_causing_insufficient_values(
+        self,
+        make_command: CommandSpecificationFactory,
+        make_value_opt: ValueOptionSpecificationFactory,
+        make_flag_opt: FlagOptionSpecificationFactory,
+    ):
+        files_option = make_value_opt(name="files", arity=Arity(2, 2))
+        verbose_flag = make_flag_opt(name="verbose")
+        spec = make_command(
+            options={"files": files_option, "verbose": verbose_flag}
         )
 
         with pytest.raises(OptionMissingValueError):

@@ -73,6 +73,7 @@ reportImportCycles = "error"
 
 [[tool.basedpyright.executionEnvironments]]
 root = "tests"
+reportUnusedParameter = "none"
 reportUnusedCallResult = "none"
 
 [tool.codespell]
@@ -337,6 +338,7 @@ ignore-variadic-names = true
   "D",
   "S101",
   "PLR2004",
-] # D=no docstrings, S101=assert, PLR2004=magic values in assertions
+  "ARG002",
+] # D=no docstrings, S101=assert, PLR2004=magic values in assertions, ARG002=unused-arguments
 "examples/**" = ["T201"] # Allow print in examples
 "scripts/**" = ["T201"] # Allow print in scripts
