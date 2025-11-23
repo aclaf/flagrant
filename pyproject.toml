@@ -76,7 +76,7 @@ root = "tests"
 reportUnusedCallResult = "none"
 
 [tool.codespell]
-skip = "uv.lock,htmlcov,tmp,pnpm-lock.yaml,docs,reviews"
+skip = "uv.lock,htmlcov,tmp,pnpm-lock.yaml,docs,plans,reviews,specs,site"
 ignore-words-list = "devlop,buil,bui,braket"
 
 [tool.commitizen]
