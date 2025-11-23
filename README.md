@@ -1,6 +1,6 @@
 # Flagrant
 
-Flagrant is [Aclaf's](https://aclaf.sh) command-line argument parser. It provides specification-driven parsing and completion for command-line arguments, options, and subcommands.
+Flagrant is [Aclaf's](https://aclaf.sh) command-line argument parser. It provides specification-driven parsing for command-line arguments, options, and subcommands.
 
 ## License
 

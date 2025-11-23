@@ -1,0 +1,16 @@
+name = "flagrant-docs"
+compatibility_date = "2025-04-01"
+preview_urls = true
+
+[env.dev]
+name = "flagrant-docs-dev"
+
+[env.pr]
+name = "flagrant-docs-pr"
+
+[env.latest]
+name = "flagrant-docs-latest"
+route = { pattern = "flagrant.aclaf.sh", custom_domain = true }
+[assets]
+directory = "./site"
+not_found_handling = "404-page"

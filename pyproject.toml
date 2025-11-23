@@ -6,7 +6,7 @@ build-backend = "uv_build"
 name = "flagrant"
 version = "0.1.0"
 authors = [{ name = "Tony Burns", email = "tony@tonyburns.net" }]
-description = "Specification-driven parsing and completion for command-line arguments, options, and subcommands."
+description = "Command-line argument, option, and subcommand parsing."
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
@@ -36,6 +36,7 @@ dev = [
   "codespell>=2.4.1",
   "commitizen>=4.9.1",
   "hypothesis>=6.147.0",
+  "import-linter>=2.6",
   "prek>=0.2.12",
   "pytest-cov>=7.0.0",
   "pytest-mock>=3.15.1",
@@ -43,25 +44,40 @@ dev = [
   "ruff>=0.14.3",
   "yamllint>=1.37.1",
 ]
-benchmarking = [
-  "pytest-benchmark>=5.2.2",
-]
-fuzzing = [
-  "atheris>=2.3.0; python_version < '3.12'",
-]
-mutation = [
-  "mutmut>=3.3.1; python_version < '3.14'",
-]
-profiling = [
-  "memray>=1.19.1",
-  "py-spy>=0.4.1",
+benchmarking = ["pytest-benchmark>=5.2.2"]
+fuzzing = ["atheris>=2.3.0; python_version < '3.12'"]
+mutation = ["mutmut>=3.3.1; python_version < '3.14'"]
+profiling = ["memray>=1.19.1", "py-spy>=0.4.1"]
+docs = [
+  "djlint>=1.36.4",
+  "mkdocs-git-authors-plugin>=0.10.0",
+  "mkdocs-git-revision-date-localized-plugin>=1.5.0",
+  "mkdocs-glightbox>=0.5.2",
+  "mkdocs-material>=9.7.0",
+  "mkdocs-rss-plugin>=1.17.7",
+  "mkdocstrings[python]>=0.30.1",
 ]
 
 [tool.basedpyright]
+exclude = [
+  "**/node_modules",
+  "**/temp",
+  "**/tmp",
+  "**/plans",
+  "**/reviews",
+  "**/specs",
+]
 include = ["src", "tests"]
+pythonVersion = "3.10"
+reportImportCycles = "error"
+
+[[tool.basedpyright.executionEnvironments]]
+root = "tests"
+reportUnusedCallResult = "none"
 
 [tool.codespell]
-skip = "uv.lock,htmlcov,tmp"
+skip = "uv.lock,htmlcov,tmp,pnpm-lock.yaml,docs,plans,reviews,specs,site"
+ignore-words-list = "devlop,buil,bui,braket,chec,cna"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
@@ -86,10 +102,11 @@ markers = [
   "benchmark: mark a test as a benchmark test.",
   "fuzz: mark a test as a fuzz test.",
   "integration: mark a test as an integration test.",
+  "parser: mark a test as a parser test.",
+  "parsing: mark a test as a parsing test.",
   "properties: mark a test as a properties test.",
+  "specification: mark a test as a specification test.",
   "unit: mark a test as a unit test.",
-  "parsing: mark a test as a parsing-related test.",
-  "completions: mark a test as a completions-related test.",
 ]
 
 [tool.coverage.run]
@@ -129,7 +146,130 @@ paths_to_mutate = ["src/flagrant"]
 tests_dir = "tests"
 runner = "pytest"
 
+[tool.importlinter]
+root_package = "flagrant"
+
+[[tool.importlinter.contracts]]
+name = "Foundation layer must be independent"
+type = "independence"
+modules = [
+  "flagrant.types",
+  "flagrant.enums",
+  "flagrant.constraints",
+  "flagrant.exceptions",
+]
+
+[[tool.importlinter.contracts]]
+name = "Specification package must not import from parser"
+type = "forbidden"
+source_modules = ["flagrant.specification"]
+forbidden_modules = ["flagrant.parser", "flagrant.configuration"]
+
+[[tool.importlinter.contracts]]
+name = "Parser depends on specification, not vice versa"
+type = "forbidden"
+source_modules = ["flagrant.specification"]
+forbidden_modules = ["flagrant.parser"]
+
+[[tool.importlinter.contracts]]
+name = "Configuration layer boundaries"
+type = "forbidden"
+source_modules = ["flagrant.configuration"]
+forbidden_modules = [
+  "flagrant.parser",
+  "flagrant.specification._arity",
+  "flagrant.specification._command",
+  "flagrant.specification._options",
+  "flagrant.specification.helpers",
+  "flagrant.specification.validations",
+  "flagrant.specification.exceptions",
+]
+
+[[tool.importlinter.contracts]]
+name = "Defaults can only import from foundation and specification enums"
+type = "forbidden"
+source_modules = ["flagrant.defaults"]
+forbidden_modules = [
+  "flagrant.configuration",
+  "flagrant.parser",
+  "flagrant.specification._arity",
+  "flagrant.specification._command",
+  "flagrant.specification._options",
+  "flagrant.specification.helpers",
+  "flagrant.specification.validations",
+  "flagrant.specification.exceptions",
+]
+
+[[tool.importlinter.contracts]]
+name = "Specification enums and arity are foundational"
+type = "forbidden"
+source_modules = [
+  "flagrant.specification.enums",
+  "flagrant.specification._arity",
+]
+forbidden_modules = [
+  "flagrant.specification.exceptions",
+  "flagrant.specification.helpers",
+  "flagrant.specification.validations",
+  "flagrant.specification._options",
+  "flagrant.specification._command",
+]
+
+[[tool.importlinter.contracts]]
+name = "Specification helpers and exceptions layer"
+type = "forbidden"
+source_modules = [
+  "flagrant.specification.helpers",
+  "flagrant.specification.exceptions",
+]
+forbidden_modules = [
+  "flagrant.specification.validations",
+  "flagrant.specification._options",
+  "flagrant.specification._command",
+]
+
+[[tool.importlinter.contracts]]
+name = "Specification validations layer"
+type = "forbidden"
+source_modules = ["flagrant.specification.validations"]
+forbidden_modules = [
+  "flagrant.specification._options",
+  "flagrant.specification._command",
+]
+
+[[tool.importlinter.contracts]]
+name = "Specification options layer"
+type = "forbidden"
+source_modules = ["flagrant.specification._options"]
+forbidden_modules = ["flagrant.specification._command"]
+
+[[tool.importlinter.contracts]]
+name = "Parser internal structure"
+type = "forbidden"
+source_modules = ["flagrant.parser._result", "flagrant.parser.exceptions"]
+forbidden_modules = ["flagrant.parser._parser"]
+
+[[tool.importlinter.contracts]]
+name = "Exception hierarchy enforcement"
+type = "forbidden"
+source_modules = ["flagrant.exceptions"]
+forbidden_modules = [
+  "flagrant.specification",
+  "flagrant.parser",
+  "flagrant.configuration",
+  "flagrant.defaults",
+]
+
 [tool.ruff]
+extend-exclude = [
+  "**/node_modules/**",
+  "**/temp/**",
+  "**/tmp/**",
+  "**/plans/**",
+  "**/reviews/**",
+  "**/specs/**",
+]
+force-exclude = true
 target-version = "py310"
 
 [tool.ruff.format]
@@ -193,6 +333,10 @@ quote-annotations = true
 ignore-variadic-names = true
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**" = ["D", "S101"]
-"examples/**" = ["T201"]      # Allow print in examples
-"scripts/**" = ["T201"]       # Allow print in scripts
+"**/tests/**" = [
+  "D",
+  "S101",
+  "PLR2004",
+] # D=no docstrings, S101=assert, PLR2004=magic values in assertions
+"examples/**" = ["T201"] # Allow print in examples
+"scripts/**" = ["T201"] # Allow print in scripts
