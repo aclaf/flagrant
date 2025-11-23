@@ -29,9 +29,7 @@ class TestGitStylePatterns:
     ):
         spec = git_like_spec
 
-        result = parse_command_line_args(
-            spec, ["push", "origin", "main", "--force"]
-        )
+        result = parse_command_line_args(spec, ["push", "origin", "main", "--force"])
 
         assert result.subcommand is not None
         assert result.subcommand.command == "push"
@@ -137,9 +135,7 @@ class TestUnixToolPatterns:
     ):
         spec = tar_like_spec
 
-        result = parse_command_line_args(
-            spec, ["-czf", "archive.tar.gz", "files/"]
-        )
+        result = parse_command_line_args(spec, ["-czf", "archive.tar.gz", "files/"])
 
         assert result.options["create"] is True
         assert result.options["gzip"] is True
@@ -151,9 +147,7 @@ class TestUnixToolPatterns:
     ):
         spec = find_like_spec
 
-        result = parse_command_line_args(
-            spec, [".", "--name", "*.py", "--type", "f"]
-        )
+        result = parse_command_line_args(spec, [".", "--name", "*.py", "--type", "f"])
 
         assert result.positionals["paths"] == (".",)
         assert result.options["name"] == "*.py"
@@ -196,9 +190,7 @@ class TestKubectlPatterns:
     ):
         spec = kubectl_like_spec
 
-        result = parse_command_line_args(
-            spec, ["exec", "-it", "my-pod", "bash"]
-        )
+        result = parse_command_line_args(spec, ["exec", "-it", "my-pod", "bash"])
 
         assert result.subcommand is not None
         assert result.subcommand.command == "exec"

@@ -195,9 +195,7 @@ class TestGreedyMode:
             },
         )
 
-        result = parse_command_line_args(
-            spec, ["--files", "a.txt", "b.txt", "c.txt"]
-        )
+        result = parse_command_line_args(spec, ["--files", "a.txt", "b.txt", "c.txt"])
 
         assert result.options["files"] == ("a.txt", "b.txt", "c.txt")
         assert "target" not in result.positionals
