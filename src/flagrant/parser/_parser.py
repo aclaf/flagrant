@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from flagrant.configuration import ParserConfiguration
 from flagrant.parser.exceptions import (
@@ -15,7 +16,9 @@ from flagrant.specification import (
     OptionType,
     ScalarOptionSpecification,
 )
-from flagrant.types import ArgList, CommandName, CommandPath
+
+if TYPE_CHECKING:
+    from flagrant.types import ArgList, CommandName, CommandPath
 
 from ._context import ParseContext
 from ._handlers import (
@@ -29,14 +32,16 @@ from ._resolver import CommandResolver, is_ambiguous_names, is_resolved_command
 from ._result import ParseResult
 from ._state import ParseState
 
+_MIN_NEGATIVE_NUMBER_LENGTH = 2  # e.g., "-1"
+
 
 @dataclass(slots=True)
 class Parser:
     """Parser for command-line arguments based on a given configuration."""
 
     spec: "CommandSpecification"
-    alias: CommandName | None = None
-    path: CommandPath = field(default_factory=tuple)
+    alias: "CommandName | None" = None
+    path: "CommandPath" = field(default_factory=tuple)
     config: "ParserConfiguration" = field(default_factory=ParserConfiguration)
 
     _resolver: "CommandResolver" = field(init=False)
@@ -47,7 +52,7 @@ class Parser:
         self._resolver = CommandResolver(self.spec, self.config)
         self._handlers = Parser._register_handlers()
 
-    def parse(self, args: ArgList) -> "ParseResult":
+    def parse(self, args: "ArgList") -> "ParseResult":
         state = ParseState(args)
         context = ParseContext(self.spec, self.path, self.config)
         self._parse_args(state, context)
@@ -122,7 +127,7 @@ class Parser:
     def _is_negative_number_positional(self, arg: str) -> bool:
         if not self.config.allow_negative_numbers:
             return False
-        if arg[0] != "-" or len(arg) < 2:
+        if arg[0] != "-" or len(arg) < _MIN_NEGATIVE_NUMBER_LENGTH:
             return False
         return self.config.negative_number_pattern.match(arg) is not None
 
@@ -179,7 +184,7 @@ class Parser:
 
 def parse_command_line_args(
     spec: "CommandSpecification",
-    args: ArgList,
+    args: "ArgList",
     config: "ParserConfiguration | None" = None,
 ) -> "ParseResult":
     """Parse command-line arguments based on the given specification and configuration.

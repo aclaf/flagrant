@@ -93,9 +93,7 @@ class TestScalarHandlerMissingValue:
         resolved = make_resolved_scalar(opt)
 
         with pytest.raises(OptionMissingValueError) as exc_info:
-            handler.parse(
-                state, ctx, resolver, resolved, NOT_GIVEN, "--output", config
-            )
+            handler.parse(state, ctx, resolver, resolved, NOT_GIVEN, "--output", config)
 
         assert exc_info.value.option == "output"
 
@@ -108,9 +106,7 @@ class TestScalarHandlerMissingValue:
         resolved = make_resolved_scalar(opt)
 
         with pytest.raises(OptionMissingValueError):
-            handler.parse(
-                state, ctx, resolver, resolved, NOT_GIVEN, "--output", config
-            )
+            handler.parse(state, ctx, resolver, resolved, NOT_GIVEN, "--output", config)
 
 
 class TestScalarHandlerOptionalArity:

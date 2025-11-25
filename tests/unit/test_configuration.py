@@ -26,7 +26,7 @@ class TestParserConfigurationDefaults:
         config = ParserConfiguration()
 
         with pytest.raises(AttributeError):
-            config.allow_negative_numbers = False  # type: ignore[misc]
+            config.allow_negative_numbers = False  # pyright: ignore[reportAttributeAccessIssue]
 
 
 class TestParserConfigurationValidation:

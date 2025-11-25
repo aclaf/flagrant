@@ -177,6 +177,7 @@ class OptionNotRepeatableError(OptionParseError):
 
         Args:
             option: The name of the option related to the error.
+            current: The existing value of the option.
             received: The value(s) that were provided to the option.
             path: The command path where the error occurred.
             args: The full list of arguments being parsed.

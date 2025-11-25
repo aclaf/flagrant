@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -22,12 +22,11 @@ def make_resolver(
     *,
     spec: "CommandSpecification | None" = None,
     config: ParserConfiguration | None = None,
-    **config_overrides: Any,
 ) -> CommandResolver:
     if spec is None:
         spec = command("test")
     if config is None:
-        config = ParserConfiguration(**config_overrides)
+        config = ParserConfiguration()
     return CommandResolver(spec, config)
 
 
@@ -54,27 +53,32 @@ class TestCommandResolverInitialization:
 
 class TestCommandResolverProperties:
     def test_long_prefix_returns_config_value(self) -> None:
-        resolver = make_resolver(long_name_prefix="--")
+        config = ParserConfiguration(long_name_prefix="--")
+        resolver = make_resolver(config=config)
 
         assert resolver.long_prefix == "--"
 
     def test_short_prefix_returns_config_value(self) -> None:
-        resolver = make_resolver(short_name_prefix="-")
+        config = ParserConfiguration(short_name_prefix="-")
+        resolver = make_resolver(config=config)
 
         assert resolver.short_prefix == "-"
 
     def test_inline_value_separator_returns_config_value(self) -> None:
-        resolver = make_resolver(inline_value_separator="=")
+        config = ParserConfiguration(inline_value_separator="=")
+        resolver = make_resolver(config=config)
 
         assert resolver.inline_value_separator == "="
 
     def test_abbreviated_options_allowed_returns_config_value(self) -> None:
-        resolver = make_resolver(allow_abbreviated_options=True)
+        config = ParserConfiguration(allow_abbreviated_options=True)
+        resolver = make_resolver(config=config)
 
         assert resolver.abbreviated_options_allowed is True
 
     def test_abbreviated_commands_allowed_returns_config_value(self) -> None:
-        resolver = make_resolver(allow_abbreviated_commands=True)
+        config = ParserConfiguration(allow_abbreviated_commands=True)
+        resolver = make_resolver(config=config)
 
         assert resolver.abbreviated_commands_allowed is True
 
@@ -96,7 +100,8 @@ class TestIsLongOption:
         assert resolver.is_long_option("file.txt") is False
 
     def test_uses_configured_prefix(self) -> None:
-        resolver = make_resolver(long_name_prefix="++")
+        config = ParserConfiguration(long_name_prefix="++", short_name_prefix="+")
+        resolver = make_resolver(config=config)
 
         assert resolver.is_long_option("++verbose") is True
         assert resolver.is_long_option("--verbose") is False
@@ -119,7 +124,8 @@ class TestIsShortOption:
         assert resolver.is_short_option("file.txt") is False
 
     def test_uses_configured_prefix(self) -> None:
-        resolver = make_resolver(short_name_prefix="/")
+        config = ParserConfiguration(short_name_prefix="/", long_name_prefix="//")
+        resolver = make_resolver(config=config)
 
         assert resolver.is_short_option("/v") is True
         assert resolver.is_short_option("-v") is False
@@ -159,7 +165,8 @@ class TestExtractInlineValue:
         assert value == ""
 
     def test_uses_configured_separator(self) -> None:
-        resolver = make_resolver(inline_value_separator=":")
+        config = ParserConfiguration(inline_value_separator=":")
+        resolver = make_resolver(config=config)
 
         name, value = resolver.extract_inline_value("output:file.txt")
 
@@ -209,7 +216,8 @@ class TestResolveOption:
     def test_case_insensitive_when_configured(self) -> None:
         verbose = flag_option(["Verbose"])
         spec = command("test", options=[verbose])
-        resolver = make_resolver(spec=spec, case_sensitive_options=False)
+        config = ParserConfiguration(case_sensitive_options=False)
+        resolver = make_resolver(spec=spec, config=config)
 
         result = resolver.resolve_option("verbose")
 
@@ -219,7 +227,8 @@ class TestResolveOption:
     def test_converts_underscores_to_hyphens_when_configured(self) -> None:
         dry_run = flag_option(["dry-run"])
         spec = command("test", options=[dry_run])
-        resolver = make_resolver(spec=spec, convert_underscores=True)
+        config = ParserConfiguration(convert_underscores=True)
+        resolver = make_resolver(spec=spec, config=config)
 
         result = resolver.resolve_option("dry_run")
 
@@ -231,7 +240,8 @@ class TestResolveOptionWithAbbreviations:
     def test_returns_none_when_abbreviations_disabled(self) -> None:
         verbose = flag_option(["verbose"])
         spec = command("test", options=[verbose])
-        resolver = make_resolver(spec=spec, allow_abbreviated_options=False)
+        config = ParserConfiguration(allow_abbreviated_options=False)
+        resolver = make_resolver(spec=spec, config=config)
 
         result = resolver.resolve_option_with_abbreviations("verb")
 
@@ -240,7 +250,8 @@ class TestResolveOptionWithAbbreviations:
     def test_resolves_unambiguous_abbreviation(self) -> None:
         verbose = flag_option(["verbose"])
         spec = command("test", options=[verbose])
-        resolver = make_resolver(spec=spec, allow_abbreviated_options=True)
+        config = ParserConfiguration(allow_abbreviated_options=True)
+        resolver = make_resolver(spec=spec, config=config)
 
         result = resolver.resolve_option_with_abbreviations("verb")
 
@@ -251,7 +262,8 @@ class TestResolveOptionWithAbbreviations:
         verbose = flag_option(["verbose"])
         version = flag_option(["version"])
         spec = command("test", options=[verbose, version])
-        resolver = make_resolver(spec=spec, allow_abbreviated_options=True)
+        config = ParserConfiguration(allow_abbreviated_options=True)
+        resolver = make_resolver(spec=spec, config=config)
 
         result = resolver.resolve_option_with_abbreviations("ver")
 
@@ -261,11 +273,11 @@ class TestResolveOptionWithAbbreviations:
     def test_respects_minimum_abbreviation_length(self) -> None:
         verbose = flag_option(["verbose"])
         spec = command("test", options=[verbose])
-        resolver = make_resolver(
-            spec=spec,
+        config = ParserConfiguration(
             allow_abbreviated_options=True,
             minimum_abbreviation_length=3,
         )
+        resolver = make_resolver(spec=spec, config=config)
 
         result = resolver.resolve_option_with_abbreviations("ve")
 
@@ -372,13 +384,11 @@ class TestResolveSubcommand:
 
         assert result is None
 
-    @pytest.mark.xfail(
-        reason="Bug: subcommand_names uses original name instead of command_key"
-    )
     def test_case_insensitive_when_configured(self) -> None:
         commit = command("Commit")
         spec = command("git", subcommands=[commit])
-        resolver = make_resolver(spec=spec, case_sensitive_commands=False)
+        config = ParserConfiguration(case_sensitive_commands=False)
+        resolver = make_resolver(spec=spec, config=config)
 
         result = resolver.resolve_subcommand("commit")
 
@@ -388,7 +398,8 @@ class TestResolveSubcommand:
     def test_resolves_unambiguous_abbreviation(self) -> None:
         commit = command("commit")
         spec = command("git", subcommands=[commit])
-        resolver = make_resolver(spec=spec, allow_abbreviated_commands=True)
+        config = ParserConfiguration(allow_abbreviated_commands=True)
+        resolver = make_resolver(spec=spec, config=config)
 
         result = resolver.resolve_subcommand("com")
 
@@ -402,7 +413,8 @@ class TestResolveSubcommand:
         commit = command("commit")
         config_cmd = command("config")
         spec = command("git", subcommands=[commit, config_cmd])
-        resolver = make_resolver(spec=spec, allow_abbreviated_commands=True)
+        config = ParserConfiguration(allow_abbreviated_commands=True)
+        resolver = make_resolver(spec=spec, config=config)
 
         result = resolver.resolve_subcommand("co")
 
@@ -508,6 +520,81 @@ class TestAmbiguousNamesDataclass:
 
         assert ambiguous.given_name == "ver"
         assert ambiguous.matches == ("verbose", "version")
+
+
+class TestSubcommandAliasNormalization:
+    def test_resolves_alias_exactly(self) -> None:
+        commit = command("commit", aliases=["ci"])
+        spec = command("git", subcommands=[commit])
+        resolver = make_resolver(spec=spec)
+
+        result = resolver.resolve_subcommand("ci")
+
+        assert is_resolved_command(result)
+        assert result.resolved_name == "commit"
+
+    def test_resolves_alias_case_insensitive(self) -> None:
+        commit = command("commit", aliases=["CI"])
+        spec = command("git", subcommands=[commit])
+        config = ParserConfiguration(case_sensitive_commands=False)
+        resolver = make_resolver(spec=spec, config=config)
+
+        result = resolver.resolve_subcommand("ci")
+
+        assert is_resolved_command(result)
+        assert result.resolved_name == "commit"
+
+    def test_resolves_alias_with_underscore_conversion(self) -> None:
+        run_tests = command("run-tests", aliases=["test-all"])
+        spec = command("app", subcommands=[run_tests])
+        config = ParserConfiguration(convert_underscores=True)
+        resolver = make_resolver(spec=spec, config=config)
+
+        result = resolver.resolve_subcommand("test_all")
+
+        assert is_resolved_command(result)
+        assert result.resolved_name == "run-tests"
+
+    def test_resolves_primary_name_with_underscore_conversion(self) -> None:
+        run_tests = command("run-tests")
+        spec = command("app", subcommands=[run_tests])
+        config = ParserConfiguration(convert_underscores=True)
+        resolver = make_resolver(spec=spec, config=config)
+
+        result = resolver.resolve_subcommand("run_tests")
+
+        assert is_resolved_command(result)
+        assert result.resolved_name == "run-tests"
+
+    def test_resolves_alias_with_combined_normalization(self) -> None:
+        my_cmd = command("my-command", aliases=["My-Alias"])
+        spec = command("app", subcommands=[my_cmd])
+        config = ParserConfiguration(
+            case_sensitive_commands=False,
+            convert_underscores=True,
+        )
+        resolver = make_resolver(spec=spec, config=config)
+
+        result = resolver.resolve_subcommand("my_alias")
+
+        assert is_resolved_command(result)
+        assert result.resolved_name == "my-command"
+
+    def test_multiple_aliases_all_resolve_correctly(self) -> None:
+        deploy = command("deploy", aliases=["release", "ship"])
+        spec = command("app", subcommands=[deploy])
+        resolver = make_resolver(spec=spec)
+
+        result_deploy = resolver.resolve_subcommand("deploy")
+        result_release = resolver.resolve_subcommand("release")
+        result_ship = resolver.resolve_subcommand("ship")
+
+        assert is_resolved_command(result_deploy)
+        assert result_deploy.resolved_name == "deploy"
+        assert is_resolved_command(result_release)
+        assert result_release.resolved_name == "deploy"
+        assert is_resolved_command(result_ship)
+        assert result_ship.resolved_name == "deploy"
 
 
 class TestTypeGuards:

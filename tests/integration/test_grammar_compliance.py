@@ -87,7 +87,6 @@ class TestShortOptionClassification:
         assert result.options["quiet"] is True
         assert result.options["force"] is True
 
-    @pytest.mark.xfail(reason="group_positionals() not implemented")
     def test_classify_single_dash_as_positional_not_option(self):
         pos = PositionalSpecification(name="args", arity="*")
         spec = command("test", positionals=[pos])
@@ -98,7 +97,6 @@ class TestShortOptionClassification:
 
 
 class TestPositionalClassification:
-    @pytest.mark.xfail(reason="group_positionals() not implemented")
     def test_classify_argument_without_dash_prefix_as_positional(self):
         pos = PositionalSpecification(name="args", arity="*")
         spec = command("test", positionals=[pos])
@@ -107,7 +105,6 @@ class TestPositionalClassification:
 
         assert result.positionals["args"] == ("file.txt",)
 
-    @pytest.mark.xfail(reason="group_positionals() not implemented")
     def test_classify_multiple_arguments_without_dash_as_positionals(self):
         pos = PositionalSpecification(name="args", arity="*")
         spec = command("test", positionals=[pos])
@@ -161,7 +158,6 @@ class TestNegativeNumberHandling:
 
         assert result.options["five"] is True
 
-    @pytest.mark.xfail(reason="group_positionals() not implemented")
     def test_classify_negative_number_as_positional_when_no_positional_specs(self):
         pos = PositionalSpecification(name="args", arity="*")
         spec = command("test", positionals=[pos])
@@ -173,7 +169,7 @@ class TestNegativeNumberHandling:
 
 
 class TestPosixStrictOrdering:
-    @pytest.mark.xfail(reason="group_positionals() not implemented")
+    @pytest.mark.xfail(reason="strict_posix_options behavior not fully implemented")
     def test_classify_option_after_positional_as_positional_in_strict_mode(self):
         opt_verbose = flag_option(["verbose"])
         opt_output = scalar_option(["output"])
@@ -188,7 +184,6 @@ class TestPosixStrictOrdering:
         assert result.positionals["args"] == ("file.txt", "--output", "result.txt")
         assert "output" not in result.options
 
-    @pytest.mark.xfail(reason="group_positionals() not implemented")
     def test_classify_option_before_positional_as_option_in_strict_mode(self):
         opt = flag_option(["verbose"])
         pos = PositionalSpecification(name="args", arity="*")
@@ -200,7 +195,7 @@ class TestPosixStrictOrdering:
         assert result.options["verbose"] is True
         assert result.positionals["args"] == ("file.txt",)
 
-    @pytest.mark.xfail(reason="group_positionals() not implemented")
+    @pytest.mark.xfail(reason="strict_posix_options behavior not fully implemented")
     def test_classify_mixed_options_positionals_correctly_in_strict_mode(self):
         opt_verbose = flag_option(["verbose"])
         opt_config = scalar_option(["config"])
@@ -218,7 +213,6 @@ class TestPosixStrictOrdering:
         assert result.options["config"] == "app.yaml"
         assert result.positionals["args"] == ("file.txt", "--extra")
 
-    @pytest.mark.xfail(reason="group_positionals() not implemented")
     def test_classify_options_and_positionals_freely_without_strict_mode(self):
         opt_verbose = flag_option(["verbose"])
         opt_output = scalar_option(["output"])
@@ -254,7 +248,6 @@ class TestSubcommandDetection:
         assert result.subcommand is not None
         assert result.subcommand.command == "build"
 
-    @pytest.mark.xfail(reason="group_positionals() not implemented")
     def test_delegate_remaining_args_to_subcommand(self):
         opt = flag_option(["verbose"])
         pos = PositionalSpecification(name="args", arity="*")
@@ -268,7 +261,6 @@ class TestSubcommandDetection:
         assert result.subcommand.options["verbose"] is True
         assert result.subcommand.positionals["args"] == ("file.txt",)
 
-    @pytest.mark.xfail(reason="group_positionals() not implemented")
     def test_classify_non_matching_name_as_positional(self):
         subcmd = command("build")
         pos = PositionalSpecification(name="args", arity="*")
@@ -280,7 +272,6 @@ class TestSubcommandDetection:
         assert result.positionals["args"] == ("deploy",)
 
 
-@pytest.mark.xfail(reason="group_positionals() not implemented")
 class TestStrictPosixWithUngroupedPositionals:
     def test_strict_posix_with_ignore_strategy_drops_extras(self):
         pos = PositionalSpecification(name="file", arity=1)
@@ -300,6 +291,7 @@ class TestStrictPosixWithUngroupedPositionals:
         assert result.positionals["file"] == "file.txt"
         assert len(result.positionals) == 1
 
+    @pytest.mark.xfail(reason="UngroupedPositionalStrategy.COLLECT not implemented")
     def test_strict_posix_with_collect_strategy_gathers_extras(self):
         pos = PositionalSpecification(name="file", arity=1)
         spec = CommandSpecification("test", positionals=(pos,))
@@ -319,6 +311,7 @@ class TestStrictPosixWithUngroupedPositionals:
         assert result.positionals["file"] == "file.txt"
         assert result.positionals["extras"] == ("extra1.txt", "extra2.txt")
 
+    @pytest.mark.xfail(reason="UngroupedPositionalStrategy.ERROR not implemented")
     def test_strict_posix_with_error_strategy_raises(self):
         pos = PositionalSpecification(name="file", arity=1)
         spec = CommandSpecification("test", positionals=(pos,))
@@ -335,6 +328,7 @@ class TestStrictPosixWithUngroupedPositionals:
                 config=config,
             )
 
+    @pytest.mark.xfail(reason="strict_posix_options behavior not fully implemented")
     def test_strict_posix_treats_options_after_positionals_as_positionals(self):
         # Design decision: Unbounded arity supersedes ungrouped collection
         # When files has (1, "*") arity, it consumes ALL positionals
@@ -360,6 +354,7 @@ class TestStrictPosixWithUngroupedPositionals:
         assert "extras" not in result.positionals  # Nothing left for ungrouped
         assert "verbose" not in result.options  # Correctly not parsed as option
 
+    @pytest.mark.xfail(reason="UngroupedPositionalStrategy.COLLECT not implemented")
     def test_strict_posix_with_multiple_groups_and_leftovers(self):
         pos_input = PositionalSpecification(name="input", arity=1)
         pos_output = PositionalSpecification(name="output", arity=1)

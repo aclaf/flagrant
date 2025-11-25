@@ -142,7 +142,7 @@ class CommandResolver:
                     command_key = command_key.replace("_", "-")
                 if not self.config.case_sensitive_commands:
                     command_key = command_key.lower()
-                subcommand_names[name] = cmd.name
+                subcommand_names[command_key] = cmd.name
         self._subcommand_names = MappingProxyType(subcommand_names)
         self._subcommands = MappingProxyType(
             {cmd.name: cmd for cmd in self.spec.subcommands or ()}

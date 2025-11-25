@@ -20,6 +20,10 @@ from flagrant.specification import (
 
 if TYPE_CHECKING:
     from flagrant.specification import CommandSpecification
+    from flagrant.specification._options import (
+        FlagOptionSpecification,
+        ScalarOptionSpecification,
+    )
 
 
 def make_simple_spec(
@@ -29,8 +33,8 @@ def make_simple_spec(
     with_scalar: bool = False,
     with_positional: bool = False,
 ) -> "CommandSpecification":
-    options = []
-    positionals = []
+    options: list[FlagOptionSpecification | ScalarOptionSpecification] = []
+    positionals: list[PositionalSpecification] = []
 
     if with_flag:
         options.append(flag_option(["verbose", "v"]))
@@ -81,19 +85,19 @@ class TestParserInitialization:
         spec = make_simple_spec()
         parser = Parser(spec)
 
-        assert len(parser._handlers) == 4
+        assert len(parser._handlers) == 4  # noqa: SLF001  # pyright: ignore[reportPrivateUsage]
 
 
 class TestParserOptionResolution:
     def test_long_option_resolves(self) -> None:
         spec = make_simple_spec(with_flag=True)
-        result = parse_command_line_args(spec, ["--verbose"])
+        result = parse_command_line_args(spec, ("--verbose",))
 
         assert result.options["verbose"] is True
 
     def test_short_option_resolves(self) -> None:
         spec = make_simple_spec(with_flag=True)
-        result = parse_command_line_args(spec, ["-v"])
+        result = parse_command_line_args(spec, ("-v",))
 
         assert result.options["verbose"] is True
 
@@ -101,7 +105,7 @@ class TestParserOptionResolution:
         spec = make_simple_spec(with_flag=True)
 
         with pytest.raises(UnknownOptionError) as exc_info:
-            parse_command_line_args(spec, ["--unknown"])
+            parse_command_line_args(spec, ("--unknown",))
 
         assert exc_info.value.option == "--unknown"
         assert exc_info.value.path == ("test",)
@@ -113,7 +117,7 @@ class TestParserOptionResolution:
         config = ParserConfiguration(allow_abbreviated_options=True)
 
         with pytest.raises(AmbiguousOptionError) as exc_info:
-            parse_command_line_args(spec, ["--ver"], config=config)
+            parse_command_line_args(spec, ("--ver",), config=config)
 
         assert exc_info.value.option == "ver"
         assert "verbose" in exc_info.value.matched
@@ -121,13 +125,13 @@ class TestParserOptionResolution:
 
     def test_option_with_value(self) -> None:
         spec = make_simple_spec(with_scalar=True)
-        result = parse_command_line_args(spec, ["--output", "file.txt"])
+        result = parse_command_line_args(spec, ("--output", "file.txt"))
 
         assert result.options["output"] == "file.txt"
 
     def test_option_with_inline_value(self) -> None:
         spec = make_simple_spec(with_scalar=True)
-        result = parse_command_line_args(spec, ["--output=file.txt"])
+        result = parse_command_line_args(spec, ("--output=file.txt",))
 
         assert result.options["output"] == "file.txt"
 
@@ -136,7 +140,7 @@ class TestParserNegativeNumbers:
     def test_negative_number_not_treated_as_option_when_allowed(self) -> None:
         spec = make_simple_spec(with_flag=True)
         config = ParserConfiguration(allow_negative_numbers=True)
-        result = parse_command_line_args(spec, ["-5"], config=config)
+        result = parse_command_line_args(spec, ("-5",), config=config)
 
         # -5 should not be treated as an option (no error, not in options)
         assert result.options.get("5") is None
@@ -144,7 +148,7 @@ class TestParserNegativeNumbers:
 
     def test_negative_number_not_treated_as_option_by_default(self) -> None:
         spec = make_simple_spec(with_flag=True)
-        result = parse_command_line_args(spec, ["-5"])
+        result = parse_command_line_args(spec, ("-5",))
 
         # By default, negative numbers are allowed as positionals
         assert result.options.get("5") is None
@@ -153,26 +157,26 @@ class TestParserNegativeNumbers:
 class TestParserTrailingSeparator:
     def test_double_dash_stops_option_parsing(self) -> None:
         spec = make_simple_spec(with_flag=True)
-        result = parse_command_line_args(spec, ["--", "--verbose"])
+        result = parse_command_line_args(spec, ("--", "--verbose"))
 
         assert result.options.get("verbose") is None
         assert "--verbose" in result.extra_args
 
     def test_args_after_separator_become_extra_args(self) -> None:
         spec = make_simple_spec()
-        result = parse_command_line_args(spec, ["--", "a", "b", "c"])
+        result = parse_command_line_args(spec, ("--", "a", "b", "c"))
 
         assert result.extra_args == ("a", "b", "c")
 
     def test_separator_with_no_following_args(self) -> None:
         spec = make_simple_spec()
-        result = parse_command_line_args(spec, ["--"])
+        result = parse_command_line_args(spec, ("--",))
 
         assert result.extra_args == ()
 
     def test_options_before_separator_parsed(self) -> None:
         spec = make_simple_spec(with_flag=True)
-        result = parse_command_line_args(spec, ["--verbose", "--", "--other"])
+        result = parse_command_line_args(spec, ("--verbose", "--", "--other"))
 
         assert result.options["verbose"] is True
         assert result.extra_args == ("--other",)
@@ -181,7 +185,7 @@ class TestParserTrailingSeparator:
 class TestParserSubcommandRouting:
     def test_valid_subcommand_routes_correctly(self) -> None:
         spec = make_subcommand_spec()
-        result = parse_command_line_args(spec, ["commit", "--all"])
+        result = parse_command_line_args(spec, ("commit", "--all"))
 
         assert result.subcommand is not None
         assert result.subcommand.command == "commit"
@@ -189,7 +193,7 @@ class TestParserSubcommandRouting:
 
     def test_subcommand_path_propagation(self) -> None:
         spec = make_subcommand_spec()
-        result = parse_command_line_args(spec, ["commit"])
+        result = parse_command_line_args(spec, ("commit",))
 
         assert result.subcommand is not None
         assert result.path == ("git", "commit")
@@ -198,7 +202,7 @@ class TestParserSubcommandRouting:
         spec = make_subcommand_spec()
 
         with pytest.raises(UnknownSubcommandError) as exc_info:
-            parse_command_line_args(spec, ["unknown"])
+            parse_command_line_args(spec, ("unknown",))
 
         assert exc_info.value.subcommand == "unknown"
 
@@ -209,14 +213,14 @@ class TestParserSubcommandRouting:
         config = ParserConfiguration(allow_abbreviated_commands=True)
 
         with pytest.raises(AmbiguousSubcommandError) as exc_info:
-            parse_command_line_args(spec, ["com"], config=config)
+            parse_command_line_args(spec, ("com",), config=config)
 
         assert "commit" in exc_info.value.matched
         assert "compare" in exc_info.value.matched
 
     def test_subcommand_receives_remaining_args(self) -> None:
         spec = make_subcommand_spec()
-        result = parse_command_line_args(spec, ["push", "--force"])
+        result = parse_command_line_args(spec, ("push", "--force"))
 
         assert result.subcommand is not None
         assert result.subcommand.options["force"] is True
@@ -225,15 +229,16 @@ class TestParserSubcommandRouting:
 class TestParserArgumentLoop:
     def test_empty_args_returns_empty_result(self) -> None:
         spec = make_simple_spec()
-        result = parse_command_line_args(spec, [])
+        result = parse_command_line_args(spec, ())
 
         assert result.options == {}
-        assert result.positionals == {}
+        # Implicit "args" positional spec captures all positional arguments
+        assert result.positionals == {"args": ()}
         assert result.extra_args == ()
 
     def test_mixed_options_and_positionals(self) -> None:
         spec = make_simple_spec(with_flag=True, with_positional=True)
-        result = parse_command_line_args(spec, ["--verbose", "file.txt"])
+        result = parse_command_line_args(spec, ("--verbose", "file.txt"))
 
         assert result.options["verbose"] is True
         # Positional grouping is not yet implemented, but parsing succeeds
@@ -241,7 +246,7 @@ class TestParserArgumentLoop:
 
     def test_single_dash_not_treated_as_option(self) -> None:
         spec = make_simple_spec(with_flag=True)
-        result = parse_command_line_args(spec, ["-"])
+        result = parse_command_line_args(spec, ("-",))
 
         # Single dash is treated as positional, not an option
         assert result.options.get("verbose") is None
@@ -250,7 +255,7 @@ class TestParserArgumentLoop:
         opt1 = flag_option(["verbose", "v"])
         opt2 = flag_option(["quiet", "q"])
         spec = command("test", options=[opt1, opt2])
-        result = parse_command_line_args(spec, ["-v", "-q"])
+        result = parse_command_line_args(spec, ("-v", "-q"))
 
         assert result.options["verbose"] is True
         assert result.options["quiet"] is True
@@ -259,20 +264,20 @@ class TestParserArgumentLoop:
 class TestParseCommandLineArgs:
     def test_convenience_function_with_default_config(self) -> None:
         spec = make_simple_spec(with_flag=True)
-        result = parse_command_line_args(spec, ["--verbose"])
+        result = parse_command_line_args(spec, ("--verbose",))
 
         assert result.options["verbose"] is True
 
     def test_convenience_function_with_custom_config(self) -> None:
         spec = make_simple_spec()
         config = ParserConfiguration(trailing_arguments_separator="---")
-        result = parse_command_line_args(spec, ["---", "extra"], config=config)
+        result = parse_command_line_args(spec, ("---", "extra"), config=config)
 
         assert result.extra_args == ("extra",)
 
     def test_returns_parse_result(self) -> None:
         spec = make_simple_spec()
-        result = parse_command_line_args(spec, [])
+        result = parse_command_line_args(spec, ())
 
         assert result.command == "test"
         assert hasattr(result, "options")

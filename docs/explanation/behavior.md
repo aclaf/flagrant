@@ -16,7 +16,13 @@ This page specifies the core parsing algorithms and runtime behavior of the Flag
 - [Long option parsing](#long-option-parsing)
 - [Short option parsing](#short-option-parsing)
 - [Value consumption](#value-consumption)
+  - [Arity semantics](#arity-semantics)
+  - [Greedy vs unbounded consumption](#greedy-vs-unbounded-consumption)
+  - [Stopping conditions](#stopping-conditions)
+  - [Item separator splitting](#item-separator-splitting)
+  - [Result shape rules](#result-shape-rules)
 - [Option accumulation](#option-accumulation)
+  - [List accumulation modes](#list-accumulation-modes)
 - [Positional grouping algorithm](#positional-grouping-algorithm)
 - [Option resolution](#option-resolution)
 - [Subcommand resolution](#subcommand-resolution)
@@ -440,19 +446,64 @@ For COUNT accumulation mode, each 'v' increments the counter:
 
 Value consumption handles consuming multiple values from following arguments when an option doesn't have an inline value. Dictionary options use specialized value consumption with additional parsing steps—see [Dictionary option value consumption](#dictionary-option-value-consumption) below for details.
 
-### Algorithm overview
+### Arity semantics
 
-Value consumption consumes arguments from the remaining argument list until one of several stopping conditions is met. The algorithm respects the option's arity constraints, stopping at the maximum arity or earlier if a stopping condition is encountered.
+Arity defines the number of arguments an option can accept. The `Arity` type supports several forms:
+
+| Arity form | Minimum | Maximum | Behavior |
+|------------|---------|---------|----------|
+| `int` (e.g., `3`) | n | n | Fixed count: exactly n values required |
+| `"?"` | 0 | 1 | Optional scalar: zero or one value |
+| `"*"` | 0 | unbounded | Unbounded: zero or more, stops at options/subcommands |
+| `"..."` | 0 | unbounded | Greedy: zero or more, consumes ALL remaining arguments |
+| `(min, max)` | min | max | Range: between min and max values |
+| `(min, "*")` | min | unbounded | Unbounded range: at least min, stops at options/subcommands |
+| `(min, "...")` | min | unbounded | Greedy range: at least min, consumes ALL remaining |
+
+**Helper functions** for working with arity:
+
+- `get_arity_min(arity)` - returns the minimum number of arguments
+- `get_arity_max(arity)` - returns the maximum, or `None` if unbounded
+- `is_greedy_arity(arity)` - true if arity consumes all remaining arguments
+- `is_unbounded_arity(arity)` - true if arity has unbounded max but stops at options
+- `is_optional_arity(arity)` - true if arity accepts zero values
+- `is_scalar_arity(arity)` - true if arity is `int` or `"?"`
+
+### Greedy vs unbounded consumption
+
+The parser distinguishes between two kinds of multi-value consumption:
+
+**Unbounded** (`"*"` or `(n, "*")`): Consumes values until a stopping condition is met. The parser checks each argument and stops when it encounters a recognized option or subcommand.
+
+```bash
+# With arity="*" and --verbose defined
+program --files a.txt b.txt --verbose c.txt
+# Result: files = ("a.txt", "b.txt")
+# --verbose is recognized and stops consumption
+```
+
+**Greedy** (`"..."` or `(n, "...")`): Consumes ALL remaining arguments regardless of whether they look like options or subcommands. Use greedy arity when the option should capture everything that follows.
+
+```bash
+# With arity="..." and --verbose defined
+program --args a.txt --verbose b.txt
+# Result: args = ("a.txt", "--verbose", "b.txt")
+# --verbose is consumed as a value, not parsed as an option
+```
+
+Greedy consumption is useful for passing arguments to subprocess commands or capturing arbitrary strings that may contain option-like patterns.
 
 ### Stopping conditions
 
-Value consumption stops when any of these conditions occur:
+For non-greedy arities, value consumption stops when any of these conditions occur:
 
 1. **Maximum arity reached** - `consumed >= arity.max` (if max is not None)
 2. **Resolvable option detected** - Next argument resolves to a known option name
 3. **Subcommand detected** - Next argument matches a defined subcommand name
 4. **End-of-options delimiter** - The `--` delimiter is encountered
 5. **End of arguments** - No more arguments available
+
+For greedy arities (`"..."` or `(n, "...")`), only conditions 1, 4, and 5 apply. The parser consumes through recognized options and subcommands without stopping.
 
 When `allow_negative_numbers` is enabled, arguments matching the negative number pattern are consumed as values rather than being treated as options, even if they start with `-`.
 
@@ -462,41 +513,59 @@ The value consumption algorithm collects argument values from the remaining argu
 
 1. **Initialize collection:**
    - Create empty values list
-   - Set consumed counter to 0
+   - If inline value present, add it to values list
+   - Calculate maximum args to consume (accounting for inline value)
 
 2. **Collect values while available:**
-   - For each argument in `next_args` starting at current position:
-     - **Check maximum arity reached:**
-       - If `arity.max` is not None AND `consumed >= arity.max`:
-         - Stop consumption (maximum values collected)
-     - **Check for resolvable option:**
-       - If current value resolves to a known option name:
-         - Stop consumption (next option encountered)
-     - **Check for subcommand:**
-       - If current value matches a defined subcommand name:
-         - Stop consumption (subcommand boundary encountered)
-     - **Check for end-of-options delimiter:**
-       - If current value is exactly `"--"`:
-         - Stop consumption (explicit boundary marker)
-     - **Collect value:**
-       - Append current value to values list
-       - Increment consumed counter
+   - For each argument in remaining args up to maximum:
+     - **If greedy arity:**
+       - Consume argument unconditionally
+     - **Else (unbounded or bounded):**
+       - If argument resolves to known option or subcommand:
+         - Stop consumption
+       - Otherwise:
+         - Consume argument
 
 3. **Validate minimum arity:**
-   - If length of values list is less than `arity.min`:
-     - Raise `InsufficientOptionValuesError`
+   - If length of values list is less than minimum arity:
+     - Raise `OptionMissingValueError`
 
-4. **Determine result type:**
-   - If arity is `EXACTLY_ONE_ARITY` (1, 1) AND accumulation mode is `LAST_WINS` or `FIRST_WINS`:
-     - Return single string (`values[0]`)
-   - Else if arity is `ZERO_OR_ONE_ARITY` (0, 1) AND accumulation mode is `LAST_WINS` or `FIRST_WINS`:
-     - Return single string (`values[0]`) if value provided
-   - Otherwise:
-     - Return tuple of strings (`tuple(values)`)
+4. **Apply item separator if enabled:**
+   - If `allow_item_separator=True` and `item_separator` is set:
+     - Split each value on the separator
+     - Respect escape character for literal separators
 
-5. **Return results:**
-   - Return `ParsedOption` with determined value
-   - Return count of arguments consumed from stream
+5. **Normalize result shape:**
+   - Apply result shape rules (see below)
+
+### Item separator splitting
+
+List options can split individual argument strings into multiple values using a configurable separator:
+
+```bash
+# With allow_item_separator=True and item_separator=","
+program --tags red,green,blue
+# Result: tags = ("red", "green", "blue")
+```
+
+The splitting respects an optional escape character:
+
+```bash
+# With escape_character="\\"
+program --values 'a\,b,c'
+# Result: values = ("a,b", "c")
+# The backslash escapes the comma
+```
+
+The escape character can also escape itself:
+
+```bash
+program --values 'a\\,b'
+# Result: values = ("a\\", "b")
+# Double backslash produces literal backslash
+```
+
+Item separator splitting is disabled by default. To enable it, set both `allow_item_separator=True` and provide an `item_separator` character. Splitting is applied after all arguments are collected, affecting both command-line arguments and inline values.
 
 ### Negative number handling
 
@@ -504,25 +573,49 @@ When `allow_negative_numbers` is enabled, the parser recognizes arguments matchi
 
 The negative number pattern (configurable via `negative_number_pattern`) typically matches strings like `-5`, `-3.14`, or `-1e5`. When a value during consumption matches this pattern and `allow_negative_numbers=True`, it is consumed as a value rather than triggering the "resolvable option" stopping condition.
 
-This configuration can be overridden on a per-option basis through the `ValueOptionSpecification.allow_negative_numbers` field, enabling fine-grained control over which options accept negative numbers.
+This configuration can be overridden on a per-option basis through the `ListOptionSpecification.allow_negative_numbers` field, enabling fine-grained control over which options accept negative numbers.
 
 ### Special case: Single dash
 
 The parser treats a bare `-` (single dash) as a valid value and does not stop consumption. This follows Unix convention where `-` represents stdin/stdout.
 
-### Value type determination
+### Result shape rules
 
-After collecting values, the parser determines whether to return a single string or a tuple based on the option's arity and accumulation mode:
+After collecting values, the parser normalizes the result shape based on arity and accumulation mode:
 
-- **EXACTLY_ONE_ARITY** (1, 1) with LAST_WINS or FIRST_WINS → single string
-- **ZERO_OR_ONE_ARITY** (0, 1) with LAST_WINS or FIRST_WINS → single string (when value provided)
-- All other cases → tuple of strings
+| Arity | Accumulation mode | Result type | Example |
+|-------|-------------------|-------------|---------|
+| `1` | `last` or `first` | `str` | `"value"` |
+| `"?"` | `last` or `first` | `str` or `None` | `"value"` or `None` |
+| `"?"` (no value) | `last` or `first` | `None` | `None` |
+| Any other | `last`, `first`, `error` | `tuple[str, ...]` | `("a", "b")` |
+| Any | `extend` | `tuple[str, ...]` | `("a", "b", "c")` |
+| Any | `append` | `tuple[tuple[str, ...], ...]` | `(("a", "b"), ("c",))` |
+
+**Key points:**
+
+- Only `arity=1` or `arity="?"` with `last`/`first` mode returns a scalar string
+- Integer arities greater than 1 (e.g., `arity=3`) return tuples, not scalars
+- `append` mode always creates nested tuples, preserving per-occurrence grouping
+- `extend` mode always creates flat tuples
 
 This ensures typical single-value options produce scalar string results, improving ergonomics for common cases while maintaining consistency for complex patterns.
 
 ## Option accumulation
 
-When an option appears multiple times in the argument list, the parser applies the configured accumulation mode to determine how values are combined.
+When an option appears multiple times in the argument list, the parser applies the configured accumulation mode to determine how values are combined. Different option types support different accumulation modes.
+
+### List accumulation modes
+
+List options (`ListOptionSpecification`) support five accumulation modes:
+
+| Mode | Behavior | Result type |
+|------|----------|-------------|
+| `last` | Replace with new values (default) | `tuple[str, ...]` |
+| `first` | Keep first occurrence, ignore subsequent | `tuple[str, ...]` |
+| `append` | Nest each occurrence as separate tuple | `tuple[tuple[str, ...], ...]` |
+| `extend` | Flatten all values into single tuple | `tuple[str, ...]` |
+| `error` | Raise exception on second occurrence | N/A |
 
 ### Accumulation algorithm
 
@@ -530,7 +623,7 @@ The accumulation algorithm determines how to combine values when an option appea
 
 1. **Check for first occurrence:**
    - If no existing option value in options dictionary:
-     - **For COUNT accumulation mode:**
+     - **For `count` accumulation mode (flags only):**
        - Set value to 1 if new value is truthy, otherwise 0
      - **For all other modes:**
        - Use new option value as-is
@@ -538,15 +631,15 @@ The accumulation algorithm determines how to combine values when an option appea
 
 2. **Process subsequent occurrences:**
 
-   - **FIRST_WINS mode:**
+   - **`first` mode:**
      - Discard new value entirely
      - Return existing option unchanged
 
-   - **LAST_WINS mode:**
+   - **`last` mode:**
      - Replace existing value completely with new value
      - Return new option
 
-   - **APPEND mode:**
+   - **`append` mode:**
      - Normalize existing value to tuple:
        - If existing value is tuple: use as-is
        - Otherwise: wrap in single-element tuple
@@ -559,16 +652,16 @@ The accumulation algorithm determines how to combine values when an option appea
      - Set new option value to combined
      - Return new option
 
-   - **EXTEND mode:**
-     - Normalize existing value to tuple (same as APPEND)
-     - Normalize new value to tuple (same as APPEND)
+   - **`extend` mode:**
+     - Normalize existing value to tuple (same as `append`)
+     - Normalize new value to tuple (same as `append`)
      - Flatten all values into single tuple:
        - `combined = (*old_values, *new_values)`
        - This creates flat list without preserving occurrence boundaries
      - Set new option value to combined
      - Return new option
 
-   - **COUNT mode:**
+   - **`count` mode (flags only):**
      - Calculate increment:
        - If new value is truthy: increment = 1
        - Otherwise: increment = 0
@@ -577,22 +670,34 @@ The accumulation algorithm determines how to combine values when an option appea
      - Set new option value to updated count
      - Return new option
 
-   - **ERROR mode:**
-     - Raise `OptionCannotBeSpecifiedMultipleTimesError`
+   - **`error` mode:**
+     - Raise `OptionNotRepeatableError`
 
 ### Mode behaviors
 
-**LAST_WINS** - Each new occurrence completely replaces the previous value. This is the default and enables patterns where command-line arguments override configuration file settings.
+**`last`** - Each new occurrence completely replaces the previous value. This is the default for list options and enables patterns where command-line arguments override configuration file settings.
 
-**FIRST_WINS** - Only the first occurrence is kept; subsequent occurrences are silently discarded. This provides immutable semantics where the initial specification locks in the value.
+**`first`** - Only the first occurrence is kept; subsequent occurrences are silently discarded. This provides immutable semantics where the initial specification locks in the value.
 
-**APPEND** - Each occurrence's arity-bounded values are appended as a separate tuple element. For options with `arity.max > 1`, this creates nested tuple structures preserving the grouping of values per occurrence. Essential for options like `--define KEY VAL` where each pair should remain grouped.
+**`append`** - Each occurrence's arity-bounded values are appended as a separate tuple element. For options with `arity.max > 1`, this creates nested tuple structures preserving the grouping of values per occurrence. Essential for options like `--define KEY VAL` where each pair should remain grouped.
 
-**EXTEND** - All values from all occurrences are extended into a single flat tuple. Both the old and new values are normalized to tuples, then combined without nesting. This is essential for building flat lists through repeated option specifications.
+```bash
+# With append mode and arity=(2, 2)
+program --coord 10 20 --coord 30 40
+# Result: coord = (("10", "20"), ("30", "40"))
+```
 
-**COUNT** - The number of occurrences is counted as an integer. Each occurrence increments the count by 1.
+**`extend`** - All values from all occurrences are extended into a single flat tuple. Both the old and new values are normalized to tuples, then combined without nesting. This is essential for building flat lists through repeated option specifications.
 
-**ERROR** - An exception is raised on the second occurrence. This enforces single-specification semantics with fail-fast behavior.
+```bash
+# With extend mode
+program --files a.txt b.txt --files c.txt
+# Result: files = ("a.txt", "b.txt", "c.txt")
+```
+
+**`count`** (flags only) - The number of occurrences is counted as an integer. Each occurrence increments the count by 1.
+
+**`error`** - An exception is raised on the second occurrence. This enforces single-specification semantics with fail-fast behavior.
 
 ## Positional grouping algorithm
 
@@ -1311,8 +1416,13 @@ See the [configuration specification](configuration.md) for complete configurati
 
 ## Dictionary option value consumption
 
-!!! warning "Not yet implemented"
-    Dictionary option parsing with AST construction and structured merge semantics is planned but not yet fully implemented. The current parser treats dictionary option values as simple strings. The behavior described below represents the intended design.
+!!! info "MVP implementation status"
+    Basic dictionary option parsing is implemented:
+
+    - **Implemented:** Basic `key=value` parsing, all accumulation modes (merge, last, first, append, error), configurable key-value separator, shallow merge for `accumulation_mode="merge"`.
+    - **Not yet implemented:** Nested key syntax (`db.host=localhost`), list index syntax (`items[0]=value`), deep merge strategy, item separator splitting.
+
+    The behavior for unimplemented features described below represents the intended design.
 
 Dictionary options (`DictOptionSpecification`) apply standard value consumption rules with additional parsing and tree construction steps to transform key-value argument strings into structured dictionary values.
 

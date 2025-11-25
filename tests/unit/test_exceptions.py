@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from flagrant.exceptions import ConfigurationError, FlagrantError
+from flagrant.exceptions import ConfigurationError, ErrorContext, FlagrantError
 
 
 class TestFlagrantError:
@@ -19,7 +19,7 @@ class TestFlagrantError:
         assert error.context == {}
 
     def test_message_with_populated_context(self) -> None:
-        context = {"key": "value", "count": 42}
+        context: ErrorContext = {"key": "value", "count": 42}
         error = FlagrantError("test message", context)
 
         assert error.context == {"key": "value", "count": 42}
@@ -31,10 +31,11 @@ class TestFlagrantError:
         assert isinstance(error.context, dict)
 
     def test_context_with_nested_structures(self) -> None:
-        context = {
+        test_path = Path("/var/log/test")
+        context: ErrorContext = {
             "list_value": [1, 2, 3],
             "nested_dict": {"inner": "value"},
-            "path": Path("/tmp/test"),
+            "path": test_path,
             "boolean": True,
             "none_value": None,
             "float_value": 3.14,
@@ -43,7 +44,7 @@ class TestFlagrantError:
 
         assert error.context["list_value"] == [1, 2, 3]
         assert error.context["nested_dict"] == {"inner": "value"}
-        assert error.context["path"] == Path("/tmp/test")
+        assert error.context["path"] == test_path
         assert error.context["boolean"] is True
         assert error.context["none_value"] is None
         assert error.context["float_value"] == 3.14
@@ -67,11 +68,12 @@ class TestConfigurationError:
         assert isinstance(error, Exception)
 
     def test_can_be_caught_as_flagrant_error(self) -> None:
+        msg = "test error"
         with pytest.raises(FlagrantError):
-            raise ConfigurationError("test error")
+            raise ConfigurationError(msg)
 
     def test_message_and_context_handling(self) -> None:
-        context = {"setting": "invalid_value"}
+        context: ErrorContext = {"setting": "invalid_value"}
         error = ConfigurationError("invalid configuration", context)
 
         assert str(error) == "invalid configuration"

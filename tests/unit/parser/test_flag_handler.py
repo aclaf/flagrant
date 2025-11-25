@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -145,9 +145,7 @@ class TestFlagHandlerTypeEnforcement:
         with pytest.raises(
             TypeError, match="FlagOptionHandler can only parse flag options"
         ):
-            handler.parse(
-                state, ctx, resolver, resolved, NOT_GIVEN, "--output", config
-            )
+            handler.parse(state, ctx, resolver, resolved, NOT_GIVEN, "--output", config)
 
 
 class TestCountingFlagHandler:
@@ -158,9 +156,7 @@ class TestCountingFlagHandler:
         state = ParseState(("-v",))
         resolved = make_resolved_flag(opt, given_name="v")
 
-        result = handler.parse(
-            state, ctx, resolver, resolved, NOT_GIVEN, "-v", config
-        )
+        result = handler.parse(state, ctx, resolver, resolved, NOT_GIVEN, "-v", config)
 
         assert result == 1
 
@@ -186,7 +182,7 @@ class TestCountingFlagHandler:
 
         assert result == 3
 
-    def test_decrements_for_negative_counting_flag(self) -> None:
+    def test_negative_counting_flag_is_noop(self) -> None:
         opt = flag_option(
             ["verbose", "v"],
             accumulation_mode="count",
@@ -203,7 +199,7 @@ class TestCountingFlagHandler:
 
         result = handler.parse(state, ctx, resolver, resolved, 2, "-q", config)
 
-        assert result == 1
+        assert result == 2
 
     def test_counting_flag_handles_non_int_current(self) -> None:
         opt = flag_option(["verbose", "v"], accumulation_mode="count")
@@ -212,8 +208,86 @@ class TestCountingFlagHandler:
         state = ParseState(("-v",))
         resolved = make_resolved_flag(opt, given_name="v")
 
-        result: Any = handler.parse(
+        result = handler.parse(
             state, ctx, resolver, resolved, "not an int", "-v", config
         )
 
         assert result == 1
+
+
+class TestCountingFlagNegativeNoOp:
+    def test_negative_flag_does_not_decrement_from_not_given(self) -> None:
+        opt = flag_option(
+            ["verbose", "v"],
+            accumulation_mode="count",
+            negative_names=("quiet", "q"),
+        )
+        ctx, resolver, config = make_handler_context(options=[opt])
+        handler = FlagOptionHandler()
+        state = ParseState(("-q",))
+        resolved = ResolvedOption(
+            given_name="q",
+            resolved_name="q",
+            spec=opt,
+        )
+
+        result = handler.parse(state, ctx, resolver, resolved, NOT_GIVEN, "-q", config)
+
+        assert result == 0
+
+    def test_negative_flag_does_not_decrement_from_zero(self) -> None:
+        opt = flag_option(
+            ["verbose", "v"],
+            accumulation_mode="count",
+            negative_names=("quiet", "q"),
+        )
+        ctx, resolver, config = make_handler_context(options=[opt])
+        handler = FlagOptionHandler()
+        state = ParseState(("-q",))
+        resolved = ResolvedOption(
+            given_name="q",
+            resolved_name="q",
+            spec=opt,
+        )
+
+        result = handler.parse(state, ctx, resolver, resolved, 0, "-q", config)
+
+        assert result == 0
+
+    def test_negative_flag_does_not_go_below_zero(self) -> None:
+        opt = flag_option(
+            ["verbose", "v"],
+            accumulation_mode="count",
+            negative_names=("quiet", "q"),
+        )
+        ctx, resolver, config = make_handler_context(options=[opt])
+        handler = FlagOptionHandler()
+        state = ParseState(("--quiet",))
+        resolved = ResolvedOption(
+            given_name="quiet",
+            resolved_name="quiet",
+            spec=opt,
+        )
+
+        result = handler.parse(state, ctx, resolver, resolved, 1, "--quiet", config)
+
+        assert result == 1
+
+    def test_negative_flag_preserves_positive_count(self) -> None:
+        opt = flag_option(
+            ["verbose", "v"],
+            accumulation_mode="count",
+            negative_names=("quiet", "q"),
+        )
+        ctx, resolver, config = make_handler_context(options=[opt])
+        handler = FlagOptionHandler()
+        state = ParseState(("-q",))
+        resolved = ResolvedOption(
+            given_name="q",
+            resolved_name="q",
+            spec=opt,
+        )
+
+        result = handler.parse(state, ctx, resolver, resolved, 5, "-q", config)
+
+        assert result == 5

@@ -3,10 +3,9 @@ from typing import TYPE_CHECKING
 
 from flagrant.specification.helpers import flatten_string_iterables
 
-from ._options import OptionType
-
 if TYPE_CHECKING:
     from ._arity import Arity
+    from ._options import OptionType
 
 
 @dataclass(slots=True, frozen=True)

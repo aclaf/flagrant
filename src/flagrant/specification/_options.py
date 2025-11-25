@@ -184,7 +184,7 @@ class ListOptionSpecification(OptionSpecification):
         """True if this option returns nested lists."""
         return self.accumulation_mode == "append"
 
-    def get_max_args(self, inline: bool = False) -> int | None:
+    def get_max_args(self, *, inline: bool = False) -> int | None:
         """Get the maximum number of arguments allowed for this option.
 
         Args:
@@ -195,7 +195,7 @@ class ListOptionSpecification(OptionSpecification):
             return None
         return arity_max - (1 if inline else 0)
 
-    def get_min_args(self, inline: bool = False) -> int:
+    def get_min_args(self, *, inline: bool = False) -> int:
         """Get the minimum number of arguments required for this option.
 
         Args:

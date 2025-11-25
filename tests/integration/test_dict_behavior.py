@@ -7,10 +7,6 @@ from flagrant.specification import (
     dict_option,
 )
 
-# All dict parsing tests are marked xfail because DictOptionHandler.parse()
-# raises NotImplementedError. The handler is not implemented.
-pytestmark = pytest.mark.xfail(reason="DictOptionHandler not implemented")
-
 
 class TestBasicDictParsing:
     def test_long_option_captures_key_value(self):
@@ -29,9 +25,7 @@ class TestBasicDictParsing:
 
         assert result.options["c"] == {"key": "value"}
 
-    @pytest.mark.xfail(reason="DictOptionHandler not implemented", run=False)
     def test_option_absent_creates_no_entry_in_result(self):
-        # This test would pass because the handler is never invoked
         opt = dict_option(["config"])
         spec = command("test", options=[opt])
 
@@ -96,6 +90,7 @@ class TestDictAccumulationModes:
             parse_command_line_args(spec, ("--config", "a=1", "--config", "b=2"))
 
 
+@pytest.mark.xfail(reason="Nested keys not implemented in MVP")
 class TestDictNestedKeys:
     def test_nested_key_creates_nested_dict(self):
         opt = dict_option(["config"], allow_nested=True)
@@ -127,7 +122,10 @@ class TestDictNestedKeys:
             "server": {"db": {"connection": {"host": "localhost"}}}
         }
 
+
+class TestDictNestedDisabled:
     def test_nested_disabled_uses_literal_key(self):
+        # When allow_nested=False (default), dots are literal key characters
         opt = dict_option(["config"], allow_nested=False)
         spec = command("test", options=[opt])
 
@@ -136,6 +134,7 @@ class TestDictNestedKeys:
         assert result.options["config"] == {"db.host": "localhost"}
 
 
+@pytest.mark.xfail(reason="Nested keys not implemented in MVP")
 class TestDictMergeStrategies:
     def test_deep_merge_combines_nested_dicts(self):
         opt = dict_option(["config"], merge_strategy="deep")
@@ -186,6 +185,7 @@ class TestDictCustomSeparators:
 
         assert result.options["config"] == {"key": "value"}
 
+    @pytest.mark.xfail(reason="Nested keys not implemented in MVP")
     def test_custom_nesting_separator(self):
         opt = dict_option(["config"], nesting_separator="/")
         spec = command("test", options=[opt])

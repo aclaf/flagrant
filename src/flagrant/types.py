@@ -103,7 +103,7 @@ class ParseResultDict(TypedDict):
     command: str
     args: tuple[Arg, ...]
     options: dict[OptionName, "OptionValue"]
-    positionals: dict[PositionalName, tuple["PositionalValue", ...]]
+    positionals: dict[PositionalName, "tuple[PositionalValue, ...] | PositionalValue"]
     subcommand: "ParseResultDict | None"
 
 

@@ -1,6 +1,6 @@
 import pytest
 
-from flagrant.exceptions import FlagrantError
+from flagrant.exceptions import ErrorContext, FlagrantError
 from flagrant.specification.exceptions import (
     CommandSpecificationError,
     OptionSpecificationError,
@@ -16,15 +16,16 @@ class TestSpecificationError:
         assert isinstance(error, Exception)
 
     def test_message_and_context_handling(self) -> None:
-        context = {"field": "options"}
+        context: ErrorContext = {"field": "options"}
         error = SpecificationError("invalid specification", context)
 
         assert str(error) == "invalid specification"
         assert error.context == {"field": "options"}
 
     def test_can_be_caught_as_flagrant_error(self) -> None:
+        msg = "test error"
         with pytest.raises(FlagrantError):
-            raise SpecificationError("test error")
+            raise SpecificationError(msg)
 
 
 class TestOptionSpecificationError:
@@ -41,7 +42,7 @@ class TestOptionSpecificationError:
         assert isinstance(error, FlagrantError)
 
     def test_context_preserved(self) -> None:
-        context = {"expected_type": "flag", "actual_type": "scalar"}
+        context: ErrorContext = {"expected_type": "flag", "actual_type": "scalar"}
         error = OptionSpecificationError("verbose", "wrong type", context)
 
         assert error.context == {"expected_type": "flag", "actual_type": "scalar"}
@@ -77,7 +78,7 @@ class TestCommandSpecificationError:
         assert isinstance(error, FlagrantError)
 
     def test_context_preserved(self) -> None:
-        context = {"subcommands": ["start", "stop"]}
+        context: ErrorContext = {"subcommands": ["start", "stop"]}
         error = CommandSpecificationError("service", "missing handler", context)
 
         assert error.context == {"subcommands": ["start", "stop"]}
@@ -93,5 +94,6 @@ class TestCommandSpecificationError:
         assert "Command 'dry-run' is invalid" in str(error)
 
     def test_can_be_caught_as_specification_error(self) -> None:
+        name = "test"
         with pytest.raises(SpecificationError):
-            raise CommandSpecificationError("test", "error")
+            raise CommandSpecificationError(name, "error")

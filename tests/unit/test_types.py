@@ -1,5 +1,3 @@
-from typing import Any
-
 from flagrant.types import (
     NOT_GIVEN,
     is_counting_flag_option_value,
@@ -47,11 +45,11 @@ class TestIsDictListOptionValue:
         assert is_dict_list_option_value(({"a": "1"}, {"b": "2"})) is True
 
     def test_returns_false_for_tuple_of_strings(self) -> None:
-        value: Any = ("a", "b")
+        value: object = ("a", "b")
         assert is_dict_list_option_value(value) is False
 
     def test_returns_false_for_string(self) -> None:
-        value: Any = "value"
+        value: object = "value"
         assert is_dict_list_option_value(value) is False
 
 
@@ -61,7 +59,7 @@ class TestIsFlagOptionValue:
         assert is_flag_option_value(False) is True
 
     def test_returns_false_for_int(self) -> None:
-        value: Any = 1
+        value: object = 1
         assert is_flag_option_value(value) is False
 
 
@@ -70,11 +68,11 @@ class TestIsCountingFlagOptionValue:
         assert is_counting_flag_option_value(5) is True
 
     def test_returns_false_for_bool(self) -> None:
-        value: Any = True
+        value: object = True
         assert is_counting_flag_option_value(value) is False
 
     def test_returns_false_for_string(self) -> None:
-        value: Any = "5"
+        value: object = "5"
         assert is_counting_flag_option_value(value) is False
 
 
@@ -83,8 +81,8 @@ class TestIsListOptionValue:
         assert is_list_option_value(("a", "b", "c")) is True
 
     def test_returns_false_for_tuple_of_ints(self) -> None:
-        value: Any = (1, 2, 3)
-        assert is_list_option_value(value) is False
+        value: object = (1, 2, 3)
+        assert is_list_option_value(value) is False  # pyright: ignore[reportArgumentType]
 
 
 class TestIsNestedListOptionValue:
@@ -92,7 +90,7 @@ class TestIsNestedListOptionValue:
         assert is_nested_list_option_value((("a", "b"), ("c",))) is True
 
     def test_returns_false_for_flat_tuple(self) -> None:
-        value: Any = ("a", "b")
+        value: object = ("a", "b")
         assert is_nested_list_option_value(value) is False
 
 
@@ -101,7 +99,7 @@ class TestIsScalarOptionValue:
         assert is_scalar_option_value("value") is True
 
     def test_returns_false_for_int(self) -> None:
-        value: Any = 5
+        value: object = 5
         assert is_scalar_option_value(value) is False
 
 
@@ -110,5 +108,5 @@ class TestIsNullOptionValue:
         assert is_null_option_value(None) is True
 
     def test_returns_false_for_string(self) -> None:
-        value: Any = "value"
+        value: object = "value"
         assert is_null_option_value(value) is False

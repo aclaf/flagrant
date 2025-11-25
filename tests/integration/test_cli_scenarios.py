@@ -1,7 +1,5 @@
 from typing import TYPE_CHECKING
 
-import pytest
-
 from flagrant.parser import parse_command_line_args
 
 if TYPE_CHECKING:
@@ -86,7 +84,6 @@ class TestKubectlLikeParser:
         assert result.subcommand is not None
         assert result.subcommand.command == "get"
 
-    @pytest.mark.xfail(reason="ListOptionHandler.parse() not fully implemented")
     def test_kubectl_apply_file(
         self, kubectl_like_spec: "CommandSpecification"
     ) -> None:
@@ -111,7 +108,6 @@ class TestMixedOptionsAndSubcommands:
         assert result.subcommand.command == "get"
 
 
-@pytest.mark.xfail(reason="group_positionals() not implemented")
 class TestPositionalArguments:
     def test_positional_after_options(
         self, git_like_spec: "CommandSpecification"

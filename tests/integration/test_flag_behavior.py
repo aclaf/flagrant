@@ -250,8 +250,10 @@ class TestNegativeFlagCaseSensitivity:
     )
     def test_case_sensitive_match_finds_exact_negative_name(self):
         flag_spec = flag_option(["verbose"], negative_prefixes=["no"])
+        is_negative = getattr(flag_spec, "is_negative", None)
+        assert is_negative is not None, "is_negative method not found"
 
-        result = flag_spec.is_negative("no-verbose", case_sensitive=True)  # pyright: ignore[reportAttributeAccessIssue]
+        result = is_negative("no-verbose", case_sensitive=True)  # pyright: ignore[reportAny]
 
         assert result is True
 
@@ -260,8 +262,10 @@ class TestNegativeFlagCaseSensitivity:
     )
     def test_case_sensitive_match_rejects_different_case(self):
         flag_spec = flag_option(["verbose"], negative_prefixes=["no"])
+        is_negative = getattr(flag_spec, "is_negative", None)
+        assert is_negative is not None, "is_negative method not found"
 
-        result = flag_spec.is_negative("NO-VERBOSE", case_sensitive=True)  # pyright: ignore[reportAttributeAccessIssue]
+        result = is_negative("NO-VERBOSE", case_sensitive=True)  # pyright: ignore[reportAny]
 
         assert result is False
 
@@ -270,8 +274,10 @@ class TestNegativeFlagCaseSensitivity:
     )
     def test_case_insensitive_match_finds_different_case(self):
         flag_spec = flag_option(["verbose"], negative_prefixes=["no"])
+        is_negative = getattr(flag_spec, "is_negative", None)
+        assert is_negative is not None, "is_negative method not found"
 
-        result = flag_spec.is_negative("NO-VERBOSE", case_sensitive=False)  # pyright: ignore[reportAttributeAccessIssue]
+        result = is_negative("NO-VERBOSE", case_sensitive=False)  # pyright: ignore[reportAny]
 
         assert result is True
 
@@ -280,8 +286,10 @@ class TestNegativeFlagCaseSensitivity:
     )
     def test_case_insensitive_match_finds_mixed_case(self):
         flag_spec = flag_option(["verbose"], negative_prefixes=["no"])
+        is_negative = getattr(flag_spec, "is_negative", None)
+        assert is_negative is not None, "is_negative method not found"
 
-        result = flag_spec.is_negative("No-Verbose", case_sensitive=False)  # pyright: ignore[reportAttributeAccessIssue]
+        result = is_negative("No-Verbose", case_sensitive=False)  # pyright: ignore[reportAny]
 
         assert result is True
 
