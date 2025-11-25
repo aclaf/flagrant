@@ -1,165 +1,124 @@
 """Type and utilities for defines the arity (number of accepted values) for options and positional parameters."""  # noqa: E501
 
-from typing import NamedTuple
-from typing_extensions import override
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeIs
+
+Arity = (
+    int
+    | Literal["?", "*", "..."]
+    | tuple[int, int]
+    | tuple[int, Literal["*"]]
+    | tuple[int, Literal["..."]]
+)
+"""The number of arguments an option or positional parameter can accept."""
 
 
-class Arity(NamedTuple):
-    """Defines the number of values an option or positional parameter accepts.
+def get_arity_min(arity: Arity) -> int:
+    """Get the minimum number of arguments for the given arity."""
+    match arity:
+        case int():
+            return arity
+        case "?":
+            return 0
+        case "*":
+            return 0
+        case "...":
+            return 0
+        case (min_args, _):
+            return min_args
 
-    Arity specifies both a minimum and maximum number of values. A maximum
-    of None indicates unbounded arity (accepts unlimited values).
 
-    Attributes:
-        min: The minimum number of values required.
-        max: The maximum number of values allowed, or None for unbounded.
+def get_arity_max(arity: Arity) -> int | None:
+    """Get the maximum number of arguments for the given arity, or None if unbounded."""
+    match arity:
+        case int():
+            return arity
+        case "?":
+            return 1
+        case "*":
+            return None
+        case "...":
+            return None
+        case (_, max_args):
+            match max_args:
+                case int():
+                    return max_args
+                case "*" | "...":
+                    return None
 
-    Examples:
-        Common arity patterns:
 
-            Arity(1, 1)     # Exactly one value (the most common case)
-            Arity(2, 2)     # Exactly two values
-            Arity(0, 0)     # No values (flag options)
-            Arity(0, None)  # Zero or more values (optional variadic)
-            Arity(1, None)  # One or more values (required variadic)
-            Arity(2, 5)     # Between 2 and 5 values (specific range)
+def is_greedy_arity(
+    arity: Arity,
+) -> "TypeIs[Literal['...'] | tuple[int, Literal['...']]]":
+    """True if the arity consumes all remaining arguments."""
+    return arity == "..." or (isinstance(arity, tuple) and arity[1] == "...")
+
+
+def is_fixed_range_arity(arity: Arity) -> "TypeIs[tuple[int, int]]":
+    """True if the arity is a fixed range (min and max are integers)."""
+    return isinstance(arity, tuple) and isinstance(arity[1], int)
+
+
+def is_optional_arity(arity: Arity) -> bool:
+    """True if the arity accepts zero values."""
+    return get_arity_min(arity) == 0
+
+
+def is_optional_scalar_arity(arity: Arity) -> "TypeIs[Literal['?']]":
+    """True if the arity accepts zero or one value."""
+    return arity == "?"
+
+
+def is_scalar_arity(arity: Arity) -> "TypeIs[int | Literal['?']]":
+    """True if the arity accepts a single value or zero/one value (`?`)."""
+    return isinstance(arity, int) or arity == "?"
+
+
+def is_unbounded_arity(
+    arity: Arity,
+) -> "TypeIs[Literal['*'] | tuple[int, Literal['*']]]":
+    """True if the arity has unbounded maximum but stops at options and subcommands."""
+    return arity == "*" or (isinstance(arity, tuple) and arity[1] == "*")
+
+
+def is_variadic_arity(
+    arity: Arity,
+) -> "TypeIs[Literal['*', '...'] | tuple[int, int] | tuple[int, Literal['*']] | tuple[int, Literal['...']]]":  # noqa: E501
+    """True is the arity accepts multiple values."""
+    return not is_scalar_arity(arity)
+
+
+def is_zero_arity(arity: Arity) -> "TypeIs[Literal[0]]":
+    """True if the arity is accepts no values."""
+    return arity == 0
+
+
+def validate_arity(arity: Arity) -> None:
+    """Validate that the given arity is well-formed.
+
+    Args:
+        arity: The arity to validate.
+
+    Raises:
+        ValueError: If the arity is not well-formed.
     """
-
-    min: int
-    max: int | None
-
-    @classmethod
-    def exact(cls, count: int) -> "Arity":
-        """Create an Arity that requires exactly `count` values.
-
-        Args:
-            count: The exact number of values required.
-
-        Returns:
-            An Arity instance with both min and max set to `count`.
-        """
-        return cls(count, count)
-
-    @classmethod
-    def exactly_one(cls) -> "Arity":
-        """Create an Arity that requires exactly one value.
-
-        Returns:
-            An Arity instance with both min and max set to 1.
-        """
-        return cls(1, 1)
-
-    @classmethod
-    def at_least_one(cls) -> "Arity":
-        """Create an Arity that requires at least one value.
-
-        Returns:
-            An Arity instance with min set to 1 and max set to None (unbounded).
-        """
-        return cls(1, None)
-
-    @classmethod
-    def at_most_one(cls) -> "Arity":
-        """Create an Arity that allows at most one value.
-
-        Returns:
-            An Arity instance with min set to 0 and max set to 1.
-        """
-        return cls(0, 1)
-
-    @classmethod
-    def none(cls) -> "Arity":
-        """Create an Arity that accepts no values.
-
-        Returns:
-            An Arity instance with both min and max set to 0.
-        """
-        return cls(0, 0)
-
-    @classmethod
-    def zero_or_more(cls) -> "Arity":
-        """Create an Arity that allows zero or more values.
-
-        Returns:
-            An Arity instance with min set to 0 and max set to None (unbounded).
-        """
-        return cls(0, None)
-
-    @override
-    def __repr__(self) -> str:
-        return f"Arity(min={self.min!r}, max={self.max!r})"
-
-    @property
-    def accepts_at_least_one_value(self) -> bool:
-        """Check if this arity accepts at least one value.
-
-        Returns:
-            True if the arity's maximum is None (unbounded) or greater than 0,
-            False otherwise.
-        """
-        return self.max is None or self.max > 0
-
-    @property
-    def accepts_at_most_one_value(self) -> bool:
-        """Check if this arity accepts at most one value.
-
-        Returns:
-            True if the arity allows zero or one value, False otherwise.
-        """
-        return self.max == 1
-
-    @property
-    def accepts_multiple_values(self) -> bool:
-        """Check if this arity accepts multiple values.
-
-        Returns:
-            True if the arity allows more than one value, False otherwise.
-        """
-        return self.max is None or self.max > 1
-
-    @property
-    def accepts_unbounded_values(self) -> bool:
-        """Check if this arity accepts any number of values.
-
-        Returns:
-            True if the arity's minimum is 0 and maximum is None (unbounded),
-            False otherwise.
-        """
-        return self.min == 0 and self.max is None
-
-    @property
-    def accepts_values(self) -> bool:
-        """Check if this arity accepts one or more values.
-
-        Returns:
-            True if the arity requires or allows values, False if it accepts none.
-        """
-        return self.max is None or self.max > 0
-
-    @property
-    def rejects_values(self) -> bool:
-        """Check if this arity rejects all values.
-
-        Returns:
-            True if the arity accepts no values (min and max are both 0),
-            False otherwise.
-        """
-        return self.min == 0 and self.max == 0
-
-    @property
-    def requires_multiple_values(self) -> bool:
-        """Check if this arity requires multiple values.
-
-        Returns:
-            True if the arity's minimum is greater than 1, False otherwise.
-        """
-        return self.min > 1
-
-    @property
-    def requires_values(self) -> bool:
-        """Check if this arity requires one or more values.
-
-        Returns:
-            True if the arity requires at least one value, False otherwise.
-        """
-        return self.min > 0
+    match arity:
+        case int() as n:
+            if n < 0:
+                msg = f"Arity integer must be non-negative, got: {arity}"
+                raise ValueError(msg)
+        case (min_args, max_args):
+            if min_args < 0:
+                msg = f"Arity minimum must be non-negative, got: {arity}"
+                raise ValueError(msg)
+            match max_args:
+                case int(n):
+                    if n < min_args:
+                        msg = f"Arity max must be >= min, got: {arity}"
+                        raise ValueError(msg)
+                case "*" | "...":
+                    pass
+        case "?" | "*" | "...":
+            pass

@@ -336,7 +336,8 @@ ignore-variadic-names = true
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = [
   "D",       # no docstrings in tests
-  "FBT001",  # boolean positional args in tests
+  "FBT001",  # boolean positional args in function defs
+  "FBT003",  # boolean positional args in function calls
   "S101",    # assert statements in tests
   "PLR0913", # too many arguments in tests
   "PLR2004", # magic values in assertions in tests

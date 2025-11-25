@@ -1,16 +1,11 @@
 """Helpers for specifications and parsing that can be used by downstream packages."""
 
+import itertools
 from collections import Counter, defaultdict
 from typing import TYPE_CHECKING
 
-from flagrant.constraints import (
-    NEGATIVE_PREFIX_SEPARATOR,
-)
-
 if TYPE_CHECKING:
     from collections.abc import Iterable
-
-    from flagrant.types import FrozenOptionNames, OptionName
 
 
 def find_duplicates(items: "Iterable[str]", *, case_sensitive: bool = True) -> set[str]:
@@ -71,158 +66,59 @@ def find_conflicts(
     return conflicts
 
 
-def all_long_option_names(
-    long_names: "Iterable[str]",
-    negative_long_names: "Iterable[str] | None" = None,
-    negative_prefixes: "Iterable[str] | None" = None,
-) -> "FrozenOptionNames":
-    """Get all long option names, including negative names.
+def flatten_string_iterables(*iterables: "Iterable[str] | None") -> tuple[str, ...]:
+    """Flatten multiple iterables of strings into a single tuple.
 
     Args:
-        long_names: An iterable of the option's long names.
-        negative_long_names: An iterable of the option's negative long names.
-        negative_prefixes: An iterable of the option's negative prefixes.
+        *iterables: Multiple iterables of strings.
 
     Returns:
-        A tuple of all long option names.
+        A tuple containing all strings from the input iterables.
     """
-    names: list[str] = list(long_names or [])
-
-    if negative_long_names is not None:
-        names.extend(negative_long_names)
-
-    if negative_prefixes is not None:
-        names.extend(negative_prefix_names(long_names, negative_prefixes))
-
-    return tuple(names)
+    return tuple(itertools.chain.from_iterable(filter(None, iterables)))
 
 
-def all_negative_long_option_names(
-    long_names: "Iterable[str]",
-    negative_long_names: "Iterable[str]",
-    negative_prefixes: "Iterable[str]",
-) -> "FrozenOptionNames":
-    """Get all negative long option names.
+def long_names(*long_names: "Iterable[str] | None") -> tuple[str, ...]:
+    """Get all long names from multiple iterables.
 
     Args:
-        long_names: An iterable of the option's long names.
-        negative_long_names: An iterable of the option's negative long names.
-        negative_prefixes: An iterable of the option's negative prefixes.
+        *long_names: Multiple iterables of long names.
 
     Returns:
-        A tuple of all negative long option names.
-    """
-    names: list[str] = list(negative_long_names)
-    prefix_names = negative_prefix_names(
-        long_names,
-        negative_prefixes,
-    )
-
-    return (*names, *prefix_names)
-
-
-def all_negative_names(
-    long_names: "Iterable[str]",
-    negative_long_names: "Iterable[str]",
-    negative_prefixes: "Iterable[str]",
-    negative_short_names: "Iterable[str]",
-) -> "FrozenOptionNames":
-    """Get all negative option names.
-
-    Args:
-        long_names: An iterable of the option's long names.
-        negative_long_names: An iterable of the option's negative long names.
-        negative_prefixes: An iterable of the option's negative prefixes.
-        negative_short_names: An iterable of the option's negative short names.
-
-    Returns:
-        A tuple of all negative option names.
-    """
-    names: list[str] = list(negative_short_names or [])
-    names.extend(
-        all_negative_long_option_names(
-            long_names,
-            negative_long_names,
-            negative_prefixes,
-        )
-    )
-
-    return tuple(names)
-
-
-def all_option_names(
-    long_names: "FrozenOptionNames | None" = None,
-    short_names: "FrozenOptionNames | None" = None,
-    negative_long_names: "FrozenOptionNames | None" = None,
-    negative_prefixes: "FrozenOptionNames | None" = None,
-    negative_short_names: "FrozenOptionNames | None" = None,
-) -> "FrozenOptionNames":
-    """Get all option names, including negative names.
-
-    Args:
-        long_names: An iterable of the option's long names.
-        short_names: An iterable of the option's short names.
-        negative_long_names: An iterable of the option's negative long names.
-        negative_prefixes: An iterable of the option's negative prefixes.
-        negative_short_names: An iterable of the option's negative short names.
-
-    Returns:
-        A tuple of all option names.
-    """
-    names: list[OptionName] = []
-    if long_names:
-        names.extend(long_names)
-    if short_names:
-        names.extend(short_names)
-    if negative_long_names:
-        names.extend(negative_long_names)
-    if negative_prefixes and long_names:
-        names.extend(negative_prefix_names(long_names, negative_prefixes))
-    if negative_short_names:
-        names.extend(negative_short_names)
-    return tuple(names)
-
-
-def all_short_names(
-    short_names: "Iterable[str]",
-    negative_short_names: "Iterable[str] | None" = None,
-) -> "FrozenOptionNames":
-    """Get all short option names, optionally including negative short names.
-
-    Args:
-        short_names: An iterable of the option's short names.
-        negative_short_names: An iterable of the option's negative short names.
-
-    Returns:
-        A tuple of all short option names.
-    """
-    names: list[str] = list(short_names)
-
-    if negative_short_names is not None:
-        names.extend(negative_short_names)
-
-    return tuple(names)
-
-
-def negative_prefix_names(
-    long_names: "Iterable[str]",
-    negative_prefixes: "Iterable[str]",
-) -> "FrozenOptionNames":
-    """Get all negative prefix names.
-
-    Args:
-        long_names: An iterable of the option's long names.
-        negative_prefixes: An iterable of the option's negative prefixes.
-        negative_prefix_separator: The separator between the negative prefix and
-            the option name.
-
-    Returns:
-        A tuple of all negative prefix names.
+        A tuple of all long names.
     """
     return tuple(
-        {
-            f"{prefix}{NEGATIVE_PREFIX_SEPARATOR}{name}"
-            for prefix in negative_prefixes
-            for name in long_names
-        }
+        name for name in flatten_string_iterables(*long_names) if len(name) > 1
+    )
+
+
+def short_names(*short_names: "Iterable[str] | None") -> tuple[str, ...]:
+    """Get all short names from multiple iterables.
+
+    Args:
+        *short_names: Multiple iterables of short names.
+
+    Returns:
+        A tuple of all short names.
+    """
+    return tuple(
+        name for name in flatten_string_iterables(*short_names) if len(name) == 1
+    )
+
+
+def prefixed_names(
+    names: "Iterable[str]",
+    prefixes: "Iterable[str]",
+) -> tuple[str, ...]:
+    """Get all prefixed names.
+
+    Args:
+        names: An iterable of the option's names.
+        prefixes: An iterable of the option's prefixes.
+
+    Returns:
+        A tuple of all prefixed names.
+    """
+    return tuple(
+        f"{prefix}{name}" for prefix, name in itertools.product(prefixes, names)
     )

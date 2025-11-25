@@ -1,7 +1,7 @@
-"""Specification-driven parsing and completion for command-line arguments, options, and subcommands."""  # noqa: E501
+"""Specification-driven parsing for command-line arguments, options, and subcommands."""
 
 from .configuration import ParserConfiguration
-from .parser import ParseResult, parse_command_line_args
+from .parser import Parser, ParseResult, parse_command_line_args
 from .specification import (
     CommandSpecification,
     DictAccumulationMode,
@@ -9,8 +9,18 @@ from .specification import (
     DictOptionSpecification,
     FlagAccumulationMode,
     FlagOptionSpecification,
-    ValueAccumulationMode,
-    ValueOptionSpecification,
+    ListAccumulationMode,
+    ListOptionSpecification,
+    ScalarAccumulationMode,
+    ScalarOptionSpecification,
+    command,
+    dict_list_option,
+    dict_option,
+    flag_option,
+    flat_list_option,
+    list_option,
+    nested_list_option,
+    scalar_option,
 )
 
 try:
@@ -27,9 +37,20 @@ __all__ = [
     "DictOptionSpecification",
     "FlagAccumulationMode",
     "FlagOptionSpecification",
+    "ListAccumulationMode",
+    "ListOptionSpecification",
     "ParseResult",
+    "Parser",
     "ParserConfiguration",
-    "ValueAccumulationMode",
-    "ValueOptionSpecification",
+    "ScalarAccumulationMode",
+    "ScalarOptionSpecification",
+    "command",
+    "dict_list_option",
+    "dict_option",
+    "flag_option",
+    "flat_list_option",
+    "list_option",
+    "nested_list_option",
     "parse_command_line_args",
+    "scalar_option",
 ]

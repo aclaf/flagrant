@@ -1,418 +1,302 @@
-from collections.abc import Callable
-from dataclasses import dataclass, field
-from functools import cached_property
-from typing import TYPE_CHECKING
+from dataclasses import InitVar, dataclass
+from typing import TYPE_CHECKING, Literal
 from typing_extensions import TypeIs, override
 
-from flagrant.defaults import (
-    DEFAULT_CONVERT_UNDERSCORES,
+from flagrant.specification._arity import (
+    get_arity_max,
+    get_arity_min,
+    is_optional_scalar_arity,
+    validate_arity,
 )
 
-from ._arity import Arity
-from .enums import (
-    DictAccumulationMode,
-    DictMergeStrategy,
-    FlagAccumulationMode,
-    ValueAccumulationMode,
-)
 from .helpers import (
-    all_long_option_names,
-    all_negative_long_option_names,
-    all_negative_names,
-    all_option_names,
-    negative_prefix_names,
-)
-from .validations import (
-    validate_long_option_names,
-    validate_negative_long_option_names,
-    validate_negative_prefixes,
-    validate_negative_short_option_names,
-    validate_parameter_name,
-    validate_short_option_names,
-    validate_value_option_accumulation_mode,
-    validate_value_option_arity,
+    flatten_string_iterables,
+    long_names,
+    prefixed_names,
+    short_names,
 )
 
 if TYPE_CHECKING:
     import re
-    from collections.abc import Sequence
 
-    from flagrant.types import FrozenOptionNames
-
-
-@dataclass(frozen=True)
-class OptionSpecification:
-    """Base class for named option parameters (e.g., `--verbose`, `-o file`).
-
-    Attributes:
-        long_names: A tuple of long names for the option (e.g., "verbose").
-        short_names: A tuple of short names for the option (e.g., "v").
-        name: The canonical name for the option.
-        arity: The number of values expected for each occurrence. See `Arity`.
-        greedy: If True, consumes all subsequent arguments as values.
-            If False, consumes until the next option or subcommand.
-        case_sensitive: Whether the option names are case sensitive.
-    """
-
-    name: str
-    arity: Arity
-    greedy: bool
-    long_names: tuple[str, ...]
-    short_names: tuple[str, ...]
-    case_sensitive: bool = True
-
-    def __init__(  # noqa: PLR0913
-        self,
-        name: str,
-        *,
-        arity: Arity | None = None,
-        case_sensitive: bool = True,
-        convert_underscores: bool = DEFAULT_CONVERT_UNDERSCORES,
-        greedy: bool = False,
-        long_names: "Sequence[str] | None" = None,
-        short_names: "Sequence[str] | None" = None,
-    ) -> None:
-        """Initializes an `OptionSpecification`.
-
-        Args:
-            name: The canonical name for the option.
-            arity: The number of values expected for each occurrence.
-                See [Arity][flagrant.specification.Arity].
-            preferred_name: The preferred name used in parse results.
-            case_sensitive: Whether the option names are case sensitive.
-            convert_underscores: Whether long and short names have underscores converted
-                automatically.
-            greedy: If True, consumes all subsequent arguments as values.
-                If False, consumes until the next option or subcommand.
-            long_names: A sequence of long names (e.g., "verbose").
-            short_names: A sequence of short names (e.g., "v").
-        """
-        validate_parameter_name(name)
-        object.__setattr__(self, "name", name)
-        object.__setattr__(self, "arity", arity or Arity.exactly_one())
-        object.__setattr__(self, "greedy", greedy)
-
-        if not long_names and not short_names:
-            if len(name) == 1:
-                short_names = (name,)
-            else:
-                long_names = (name,)
-
-        normalized_long_names = tuple(n.lstrip("-") for n in (long_names or ()))
-        normalized_short_names = tuple(n.lstrip("-") for n in (short_names or ()))
-
-        if convert_underscores:
-            normalized_long_names = tuple(
-                n.replace("_", "-") for n in normalized_long_names
-            )
-            normalized_short_names = tuple(
-                n.replace("_", "-") for n in normalized_short_names
-            )
-
-        validate_long_option_names(
-            name, normalized_long_names, case_sensitive=case_sensitive
-        )
-        validate_short_option_names(
-            name, normalized_short_names, case_sensitive=case_sensitive
-        )
-
-        object.__setattr__(self, "long_names", tuple(normalized_long_names))
-        object.__setattr__(self, "short_names", tuple(normalized_short_names))
-
-    @property
-    def accepts_multiple_values(self) -> bool:
-        """Check if this parameter can accept multiple values."""
-        return self.arity.accepts_multiple_values
-
-    @property
-    def accepts_unbounded_values(self) -> bool:
-        """Check if this parameter can accept any number of values."""
-        return self.arity.accepts_unbounded_values
-
-    @property
-    def greedy_accepts_unbounded_values(self) -> bool:
-        """Check if this parameter greedily accepts an unbounded number of values."""
-        return self.accepts_unbounded_values and self.greedy
-
-    @property
-    def accepts_values(self) -> bool:
-        """Check if this parameter can accept one or more values."""
-        return self.arity.accepts_values
-
-    @property
-    def accepts_at_most_one_value(self) -> bool:
-        """Check if this parameter can accept at most one value."""
-        return self.arity.accepts_at_most_one_value
-
-    @property
-    def rejects_values(self) -> bool:
-        """Check if this parameter rejects values (accepts none)."""
-        return self.arity.rejects_values
-
-    @property
-    def requires_multiple_values(self) -> bool:
-        """Check if this parameter requires multiple values."""
-        return self.arity.requires_multiple_values
-
-    @property
-    def requires_value(self) -> bool:
-        """Check if this option requires at least one value."""
-        return self.arity.min > 0
-
-    @property
-    def requires_values(self) -> bool:
-        """Check if this parameter requires one or more values."""
-        return self.arity.requires_values
-
-    @cached_property
-    def all_long_names(self) -> "FrozenOptionNames":
-        """Get all long names for this option."""
-        return all_long_option_names(self.long_names)
-
-    @cached_property
-    def all_short_names(self) -> "FrozenOptionNames":
-        """Get all short names for this option."""
-        return self.short_names
-
-    @cached_property
-    def all_names(self) -> "FrozenOptionNames":
-        """Get all names (long and short) for this option."""
-        return all_option_names(self.long_names, self.short_names)
-
-    def matches(self, name: str) -> bool:
-        """Check if name matches any form of this option (exact match only)."""
-        return name in self.all_names
-
-
-@dataclass(frozen=True)
-class FlagOptionSpecification(OptionSpecification):
-    """A specification for a boolean flag option.
-
-    Flags are options that do not take a value; their presence indicates a state.
-
-    Attributes:
-        accumulation_mode: The strategy for handling multiple occurrences.
-            See `FlagAccumulationMode`.
-        negative_prefix_separator: The separator used for negative prefixes.
-        negative_prefixes: A set of prefixes that create negated forms of the
-            long names (e.g., "no-" creates "--no-verbose").
-        negative_short_names: A set of short names that act as negatives.
-    """
-
-    accumulation_mode: FlagAccumulationMode = FlagAccumulationMode.LAST
-    negative_long_names: tuple[str, ...] = field(default_factory=tuple)
-    negative_prefixes: tuple[str, ...] = field(default_factory=tuple)
-    negative_short_names: tuple[str, ...] = field(default_factory=tuple)
-
-    def __post_init__(self) -> None:
-        if self.negative_long_names:
-            validate_negative_long_option_names(
-                self.name,
-                self.negative_long_names,
-                self.long_names,
-                case_sensitive=self.case_sensitive,
-            )
-
-        if self.negative_prefixes:
-            validate_negative_prefixes(
-                self.name,
-                self.negative_prefixes,
-                self.negative_long_names or (),
-                self.long_names,
-                case_sensitive=self.case_sensitive,
-            )
-
-        if self.negative_short_names:
-            validate_negative_short_option_names(
-                self.name,
-                self.negative_short_names,
-                self.short_names,
-                case_sensitive=self.case_sensitive,
-            )
-
-    @cached_property
-    @override
-    def all_names(self) -> "FrozenOptionNames":
-        """Get all names (long, short, negative) for this flag."""
-        return all_option_names(
-            self.long_names,
-            self.short_names,
-            self.negative_long_names,
-            self.negative_prefixes,
-            self.negative_short_names,
-        )
-
-    @cached_property
-    @override
-    def all_long_names(self) -> "FrozenOptionNames":
-        """Get all long names for this flag, including negative names."""
-        return all_long_option_names(
-            self.long_names,
-            self.negative_long_names,
-            self.negative_prefixes,
-        )
-
-    @cached_property
-    @override
-    def all_short_names(self) -> "FrozenOptionNames":
-        """Get all short names for this flag, including negative short names."""
-        return (*self.short_names, *self.negative_short_names)
-
-    @cached_property
-    def all_negative_long_names(self) -> "FrozenOptionNames":
-        """Get all long negative names for this flag."""
-        return all_negative_long_option_names(
-            self.long_names,
-            self.negative_long_names,
-            self.negative_prefixes,
-        )
-
-    @cached_property
-    def all_negative_prefix_names(self) -> "FrozenOptionNames":
-        """Get all negative prefix names for this flag."""
-        return negative_prefix_names(
-            self.long_names,
-            self.negative_prefixes,
-        )
-
-    @cached_property
-    def all_negative_names(self) -> "FrozenOptionNames":
-        """Get all negative names for this flag."""
-        return all_negative_names(
-            self.long_names,
-            self.negative_long_names,
-            self.negative_prefixes,
-            self.negative_short_names,
-        )
-
-    @cached_property
-    def all_negative_short_names(self) -> "FrozenOptionNames":
-        """Get all short names for this flag."""
-        return self.negative_short_names
-
-    @cached_property
-    def has_negative_names(self) -> bool:
-        """Check if this flag has any negative names."""
-        return bool(
-            self.negative_long_names
-            or self.negative_prefixes
-            or self.negative_short_names
-        )
-
-    def is_negative(self, name: str, *, case_sensitive: bool = True) -> bool:
-        """Check if name is a negative form of this flag."""
-        if case_sensitive:
-            return name in self.all_negative_names
-        return name.lower() in {n.lower() for n in self.all_negative_names}
+    from ._arity import Arity
 
 
 @dataclass(slots=True, frozen=True)
-class ValueOptionSpecification(OptionSpecification):
-    """A specification for an option that accepts one or more values.
+class OptionSpecification:
+    """Base class for named option parameters."""
 
-    Attributes:
-        arity: The number of values expected for each occurrence. See `Arity`.
-        accumulation_mode: The strategy for handling multiple occurrences.
-            See [ValueAccumulationMode][flagrant.specification.ValueAccumulationMode].
-        allow_negative_numbers: If True, allows values that look like negative
-            numbers (e.g., "-5") to be parsed as values for this option.
-        greedy: If True, consumes all subsequent arguments as values until
-            a separator (`--`) is found, ignoring other options.
-        item_separator: A character used to split a single argument into
-            multiple values. Overrides the global `value_item_separator`.
-        allow_item_separator: If True, enables the `item_separator`.
-        escape_character: A character used to escape the `item_separator`.
-            Overrides the global `value_escape_character`.
-        negative_number_pattern: An optional regex to identify negative numbers,
-            overriding the global `negative_number_pattern` for this option.
-    """
+    names: tuple[str, ...]
 
-    accumulation_mode: ValueAccumulationMode = ValueAccumulationMode.LAST
-    allow_item_separator: bool = False
-    allow_negative_numbers: bool = False
-    escape_character: str | None = None
-    item_separator: str | None = None
-    negative_number_pattern: "re.Pattern[str] | None" = None
+    @property
+    def name(self) -> str:
+        """Get the canonical name of this option."""
+        return self.names[0]
 
-    def __post_init__(self) -> None:
-        validate_value_option_arity(self.name, self.arity, greedy=self.greedy)
-        validate_value_option_accumulation_mode(
-            self.name, self.accumulation_mode, self.arity
-        )
+    @property
+    def all_names(self) -> tuple[str, ...]:
+        """Get all names (long, short, negative) for this option."""
+        return flatten_string_iterables(self.long_names, self.short_names)
+
+    @property
+    def long_names(self) -> tuple[str, ...]:
+        """Get the long names for this option."""
+        return long_names(self.names)
+
+    @property
+    def short_names(self) -> tuple[str, ...]:
+        """Get the short names for this option."""
+        return short_names(self.names)
+
+
+DictAccumulationMode = Literal["append", "error", "first", "last", "merge"]
+DictMergeStrategy = Literal["deep", "shallow"]
 
 
 @dataclass(slots=True, frozen=True)
 class DictOptionSpecification(OptionSpecification):
-    """A specification for an option that accepts key-value pairs.
+    """A option that accepts key-value pairs.
 
-    Attributes:
-        arity: The number of `key=value` arguments expected per occurrence.
-        accumulation_mode: The strategy for handling multiple occurrences.
-            See [DictAccumulationMode][flagrant.specification.DictAccumulationMode].
-        merge_strategy: The strategy for merging dictionaries when `MERGE`
-            is used. See [DictMergeStrategy][flagrant.specification.DictMergeStrategy].
-        key_value_separator: The character separating a key from a value.
-            Overrides the global `key_value_separator`.
-        nesting_separator: The character for denoting nested keys (e.g., ".").
-            Overrides the global `nesting_separator`.
-        allow_nested: If True, allows keys to be nested.
-        case_sensitive_keys: If True, keys are case-sensitive.
-        allow_duplicate_list_indices: If True, allows `list[0]=a list[0]=b`.
-        allow_sparse_lists: If True, allows `list[0]=a list[2]=c`.
-        strict_structure: If True, enforces strict structural rules. Overrides
-            the global `strict_structure`.
-        greedy: If True, consumes all subsequent arguments as values.
-        item_separator: A character to split a single argument into multiple
-            key-value pairs. Overrides the global `dict_item_separator`.
-        allow_item_separator: If True, enables the `item_separator`.
-        escape_character: Character to escape separators. Overrides
-            the global `dict_escape_character`.
+    The value of the option in parsed results will be a dictionary or tuple of
+    dictionaries (when `accumulation_mode = "append"`).
     """
 
-    accumulation_mode: DictAccumulationMode = DictAccumulationMode.MERGE
+    accumulation_mode: DictAccumulationMode = "merge"
+    allow_auto_list_indices: bool = False
     allow_duplicate_list_indices: bool = False
-    allow_item_separator: bool = True
+    allow_item_separator: bool = False
+    allow_json_list: bool = False
+    allow_json_object: bool = False
     allow_nested: bool = True
     allow_sparse_lists: bool = False
-    case_sensitive_keys: bool = True
+    arity: "Arity" = "*"
     escape_character: str | None = None
     item_separator: str | None = None
     key_value_separator: str | None = None
-    merge_strategy: DictMergeStrategy = DictMergeStrategy.DEEP
+    merge_strategy: DictMergeStrategy = "deep"
     nesting_separator: str | None = None
+    require_json_list: bool = False
+    require_json_object: bool = False
     strict_structure: bool | None = None
 
-    def __post_init__(self):
-        validate_value_option_arity(self.name, self.arity, greedy=self.greedy)
+    def __post_init__(self) -> None:
+        validate_arity(self.arity)
+
+    @property
+    def is_list(self) -> bool:
+        """True if this option returns a list of dictionaries."""
+        return self.accumulation_mode == "append"
 
 
-NonFlagOptionSpecificationType = DictOptionSpecification | ValueOptionSpecification
-OptionSpecificationType = (
-    DictOptionSpecification | FlagOptionSpecification | ValueOptionSpecification
+FlagAccumulationMode = Literal["count", "error", "first", "last", "toggle"]
+
+
+@dataclass(slots=True, frozen=True)
+class FlagOptionSpecification(OptionSpecification):
+    """A boolean flag that does not accept a value.
+
+    The value of the option in parsed results will be a boolean or integer (when
+    `accumulation_mode = "count"`).
+    """
+
+    accumulation_mode: FlagAccumulationMode = "toggle"
+    arity: Literal[0] = 0
+    negative_names: tuple[str, ...] | None = None
+
+    negative_prefixes: InitVar[tuple[str, ...] | None] = None
+
+    def __post_init__(self, negative_prefixes: tuple[str, ...] | None) -> None:
+        if negative_prefixes is not None:
+            if self.negative_names is None:
+                object.__setattr__(
+                    self,
+                    "negative_names",
+                    prefixed_names(self.long_names, negative_prefixes),
+                )
+            else:
+                object.__setattr__(
+                    self,
+                    "negative_names",
+                    (
+                        *self.negative_names,
+                        *prefixed_names(self.long_names, negative_prefixes),
+                    ),
+                )
+
+    @property
+    @override
+    def long_names(self) -> tuple[str, ...]:
+        """Get the long names for this option."""
+        return long_names(self.names, self.negative_long_names)
+
+    @property
+    @override
+    def short_names(self) -> tuple[str, ...]:
+        """Get the short names for this option."""
+        return short_names(self.names, self.negative_short_names)
+
+    @property
+    def negative_long_names(self) -> tuple[str, ...]:
+        """Get the long negative names for this option."""
+        return long_names(self.negative_names)
+
+    @property
+    def negative_short_names(self) -> tuple[str, ...]:
+        """Get the short negative names for this option."""
+        return short_names(self.negative_names)
+
+    @property
+    def has_negative_names(self) -> bool:
+        """Check if this option has any negative names."""
+        if self.negative_names is None:
+            return False
+        return bool(self.negative_names)
+
+    @property
+    def is_counting(self) -> bool:
+        """Check if this flag option uses `counting` accumulation mode."""
+        return self.accumulation_mode == "count"
+
+
+ListAccumulationMode = Literal["append", "error", "extend", "first", "last"]
+
+
+@dataclass(slots=True, frozen=True)
+class ListOptionSpecification(OptionSpecification):
+    """An option that accepts multiple scalar values.
+
+    The value of the option in parsed results will be a tuple of strings or nested
+    tuples of strings (one level when `accumulation_mode = "append"`).
+    """
+
+    accumulation_mode: ListAccumulationMode = "last"
+    allow_item_separator: bool = False
+    allow_negative_numbers: bool = False
+    arity: "Arity" = "*"
+    escape_character: str | None = None
+    item_separator: str | None = None
+
+    def __post_init__(self) -> None:
+        validate_arity(self.arity)
+
+    @property
+    def is_nested(self) -> bool:
+        """True if this option returns nested lists."""
+        return self.accumulation_mode == "append"
+
+    def get_max_args(self, inline: bool = False) -> int | None:
+        """Get the maximum number of arguments allowed for this option.
+
+        Args:
+            inline: Whether an inline value was provided.
+        """
+        arity_max = get_arity_max(self.arity)
+        if arity_max is None:
+            return None
+        return arity_max - (1 if inline else 0)
+
+    def get_min_args(self, inline: bool = False) -> int:
+        """Get the minimum number of arguments required for this option.
+
+        Args:
+            inline: Whether an inline value was provided.
+        """
+        return get_arity_min(self.arity) - (1 if inline else 0)
+
+
+ScalarAccumulationMode = Literal["error", "first", "last"]
+
+
+@dataclass(slots=True, frozen=True)
+class ScalarOptionSpecification(OptionSpecification):
+    """An option that accepts a single or optional scalar value.
+
+    The value of the option in parsed results will be a single string or `None` (when
+    `arity = "?"` and value is not provided).
+    """
+
+    accumulation_mode: Literal["error", "first", "last"] = "last"
+    allow_negative_numbers: bool = False
+    escape_character: str | None = None
+    arity: Literal[1, "?"] = 1
+    negative_number_pattern: "re.Pattern[str] | None" = None
+
+    @property
+    def requires_value(self) -> bool:
+        """True if this option requires a value to be provided."""
+        return not is_optional_scalar_arity(self.arity)
+
+
+OptionType = (
+    DictOptionSpecification
+    | FlagOptionSpecification
+    | ListOptionSpecification
+    | ScalarOptionSpecification
 )
-OptionSpecificationFactory = Callable[..., OptionSpecificationType]
-DictOptionSpecificationFactory = Callable[..., DictOptionSpecification]
-FlagOptionSpecificationFactory = Callable[..., FlagOptionSpecification]
-ValueOptionSpecificationFactory = Callable[..., ValueOptionSpecification]
 
 
-def is_dict_option(spec: OptionSpecification) -> TypeIs[DictOptionSpecification]:
-    """Check if the given specification is a DictOptionSpecification."""
-    return isinstance(spec, DictOptionSpecification)
+def is_dict_option(
+    option: OptionType,
+) -> "TypeIs[DictOptionSpecification]":
+    """True if the option is a [DictOptionSpecification][flagrant.specification.DictOptionSpecification]."""  # noqa: E501
+    return isinstance(option, DictOptionSpecification)
 
 
-def is_flag_option(spec: OptionSpecification) -> TypeIs[FlagOptionSpecification]:
-    """Check if the given specification is a FlagOptionSpecification."""
-    return isinstance(spec, FlagOptionSpecification)
+def is_dict_list_option(
+    option: OptionType,
+) -> "TypeIs[DictOptionSpecification]":
+    """True if the option is a list [DictOptionSpecification][flagrant.specification.DictOptionSpecification]."""  # noqa: E501
+    return is_dict_option(option) and option.is_list
 
 
-def is_value_option(spec: OptionSpecification) -> TypeIs[ValueOptionSpecification]:
-    """Check if the given specification is a ValueOptionSpecification."""
-    return isinstance(spec, ValueOptionSpecification)
+def is_flag_option(
+    option: OptionType,
+) -> "TypeIs[FlagOptionSpecification]":
+    """True if the option is a [FlagOptionSpecification][flagrant.specification.FlagOptionSpecification]."""  # noqa: E501
+    return isinstance(option, FlagOptionSpecification)
 
 
-def is_non_flag_option(
-    spec: OptionSpecification,
-) -> TypeIs[NonFlagOptionSpecificationType]:
-    """Check if the given specification is a non-flag option."""
-    return is_dict_option(spec) or is_value_option(spec)
+def is_counting_flag_option(
+    option: OptionType,
+) -> "TypeIs[FlagOptionSpecification]":
+    """True if the option is a counting [FlagOptionSpecification][flagrant.specification.FlagOptionSpecification]."""  # noqa: E501
+    return is_flag_option(option) and option.is_counting
+
+
+def is_list_option(
+    option: OptionType,
+) -> "TypeIs[ListOptionSpecification]":
+    """True if the option is a [ListOptionSpecification][flagrant.specification.ListOptionSpecification]."""  # noqa: E501
+    return isinstance(option, ListOptionSpecification)
+
+
+def is_nested_list_option(
+    option: OptionType,
+) -> "TypeIs[ListOptionSpecification]":
+    """True if the option is a nested [ListOptionSpecification][flagrant.specification.ListOptionSpecification]."""  # noqa: E501
+    return is_list_option(option) and option.is_nested
+
+
+def is_scalar_option(
+    option: OptionType,
+) -> "TypeIs[ScalarOptionSpecification]":
+    """True if the option is a [ScalarOptionSpecification][flagrant.specification.ScalarOptionSpecification]."""  # noqa: E501
+    return isinstance(option, ScalarOptionSpecification)
+
+
+def is_optional_scalar_option(
+    option: OptionType,
+) -> "TypeIs[ScalarOptionSpecification]":
+    """True if the option is a scalar option with optional value."""
+    return is_scalar_option(option) and is_optional_scalar_arity(option.arity)
+
+
+def is_multi_value_option(
+    option: OptionType,
+) -> "TypeIs[DictOptionSpecification | ListOptionSpecification]":
+    """True if the option is a multi-value option (dict list or list)."""
+    return (
+        is_dict_list_option(option)
+        or is_list_option(option)
+        or is_nested_list_option(option)
+    )
